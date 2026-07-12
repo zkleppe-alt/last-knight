@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230d0208'/%3E%3Crect x='5' y='1' width='6' height='1' fill='%23f2c14e'/%3E%3Crect x='5' y='0' width='1' height='1' fill='%23f2c14e'/%3E%3Crect x='7' y='0' width='1' height='1' fill='%23f2c14e'/%3E%3Crect x='10' y='0' width='1' height='1' fill='%23f2c14e'/%3E%3Crect x='4' y='3' width='8' height='8' fill='%23dfe4ee'/%3E%3Crect x='4' y='3' width='2' height='8' fill='%23f7f9fd'/%3E%3Crect x='10' y='3' width='2' height='8' fill='%23aab2c0'/%3E%3Crect x='6' y='6' width='4' height='1' fill='%231a1410'/%3E%3Crect x='5' y='11' width='6' height='2' fill='%23b6bccb'/%3E%3Crect x='7' y='13' width='2' height='3' fill='%23c0392e'/%3E%3C/svg%3E">
+<title>Uncharted Lands — Kingdom's Last Knight</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; }
+  body {
+    background:#0d0208; color:#e6dbff;
+    font-family:'Press Start 2P', monospace;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:24px; gap:22px; overflow:hidden;
+    background-image:radial-gradient(circle at 50% 38%, #1a1230 0%, #0d0208 70%);
+  }
+  .stars { position:fixed; inset:0; z-index:0; pointer-events:none; }
+  .wrap { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:22px; max-width:520px; }
+  .code { font-size:46px; color:#f2c14e; letter-spacing:4px; text-shadow:3px 3px 0 #3a2a10; }
+  h1 { font-size:13px; color:#e94560; line-height:1.9; }
+  p { font-size:9px; color:#9a8ab8; line-height:2.1; }
+  .helm { width:64px; height:64px; image-rendering:pixelated; }
+  a.btn {
+    font-family:'Press Start 2P', monospace; font-size:10px; text-decoration:none;
+    color:#0d0208; background:#f2c14e; border:3px solid #a8842a;
+    padding:12px 18px; border-radius:6px; box-shadow:0 3px 0 #a8842a;
+  }
+  a.btn:active { transform:translateY(3px); box-shadow:none; }
+  .count { font-size:7px; color:#6b5a8a; }
+</style>
+</head>
+<body>
+  <canvas class="stars" id="stars"></canvas>
+  <div class="wrap">
+    <svg class="helm" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+      <rect x="5" y="1" width="6" height="1" fill="#f2c14e"/>
+      <rect x="5" y="0" width="1" height="1" fill="#f2c14e"/><rect x="7" y="0" width="1" height="1" fill="#f2c14e"/><rect x="10" y="0" width="1" height="1" fill="#f2c14e"/>
+      <rect x="4" y="3" width="8" height="8" fill="#dfe4ee"/>
+      <rect x="4" y="3" width="2" height="8" fill="#f7f9fd"/><rect x="10" y="3" width="2" height="8" fill="#aab2c0"/>
+      <rect x="6" y="6" width="4" height="1" fill="#1a1410"/>
+      <rect x="5" y="11" width="6" height="2" fill="#b6bccb"/>
+      <rect x="7" y="13" width="2" height="3" fill="#c0392e"/>
+    </svg>
+    <div class="code">404</div>
+    <h1>These lands are uncharted</h1>
+    <p>No knight has walked this road.<br>Returning you to the Keep&hellip;</p>
+    <a class="btn" id="home" href="./">▶ RETURN NOW</a>
+    <div class="count" id="count"></div>
+  </div>
+<script>
+  // GitHub Pages serves this file for any missing path under the site.
+  // Send the player back to the game's root. For a project site
+  // (username.github.io/REPO/...) that's the first path segment.
+  // If you ever move to a custom domain or a user root site, change base to '/'.
+  (function(){
+    var parts = location.pathname.split('/').filter(Boolean);
+    var base = parts.length ? '/' + parts[0] + '/' : '/';
+    document.getElementById('home').setAttribute('href', base);
+
+    // gentle starfield to match the title screen
+    var cv = document.getElementById('stars'), g = cv.getContext('2d'), stars = [];
+    function fit(){ cv.width = innerWidth; cv.height = innerHeight; stars = [];
+      for (var i=0;i<70;i++) stars.push({x:Math.random()*cv.width, y:Math.random()*cv.height, s:Math.random()*1.6+0.4, t:Math.random()*6}); }
+    fit(); addEventListener('resize', fit);
+    (function draw(){ g.clearRect(0,0,cv.width,cv.height);
+      for (var i=0;i<stars.length;i++){ var st=stars[i]; st.t+=0.03;
+        g.globalAlpha = 0.4 + 0.6*Math.abs(Math.sin(st.t));
+        g.fillStyle = i%7===0 ? '#ffe9c0' : '#cfd8ff';
+        g.fillRect(st.x, st.y, st.s, st.s); }
+      g.globalAlpha = 1; requestAnimationFrame(draw); })();
+
+    // countdown, then bounce home
+    var n = 3, el = document.getElementById('count');
+    el.textContent = 'returning in ' + n + '\u2026';
+    var iv = setInterval(function(){ n--; if (n<=0){ clearInterval(iv); location.replace(base); }
+      else el.textContent = 'returning in ' + n + '\u2026'; }, 1000);
+  })();
+</script>
+</body>
+</html>
