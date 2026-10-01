@@ -29064,7 +29064,7 @@ bootLogo.src=BOOT_LOGO_SRC;
 const boot = { done:false, phase:'logo', t:0, cursor:0, fade:0, fin:0, fading:null, slashed:false, confirmed:false };
 const BOOT_W=240, BOOT_H=160;
 // Bumped on every export. Shown on the title screen so a cached copy is obvious.
-const BUILD_TAG='2026-09-30-uw';   // 🌊 The Deep merged (_legacy: '2026-09-20-h')
+const BUILD_TAG='2026-09-30-uw2';  // 🌊 music by room (_legacy: '2026-09-30-uw', '2026-09-20-h')
 
 // ── tiny Web Audio kit (game has no audio system yet; kept self-contained) ──
 let bootAC=null;
@@ -30618,9 +30618,14 @@ function uwDraw(){
 function uwMarkerAt(tx,ty){ return UW_ON && place.kind==='overworld' && UW_SPOTS.some(s=>s.x===tx&&s.y===ty); }
 
 // ── the music (musicFor hook): underwater.mp3, else the chapel recording ──
+// Zak: the courts get underwater.mp3; inside the house, the chapel recording.
+// Either falls back to the other if its file is missing, then to the town chiptune.
+// _legacy: underwater.mp3 everywhere below, the chapel only as its fallback.
 function uwMusic(){
-  if(RTRACKS.underwater && !RTRACKS.underwater.dead) return 'rt:underwater';
-  return (RTRACKS.chapel && !RTRACKS.chapel.dead) ? 'rt:chapel' : 'town';
+  const deep = RTRACKS.underwater && !RTRACKS.underwater.dead;
+  const chapel = RTRACKS.chapel && !RTRACKS.chapel.dead;
+  if(uw.room==='temple') return chapel ? 'rt:chapel' : deep ? 'rt:underwater' : 'town';
+  return deep ? 'rt:underwater' : chapel ? 'rt:chapel' : 'town';
 }
 // ── the coral barding (drawSteedSprite hook) ──
 let _uwCoralBusy=false;
