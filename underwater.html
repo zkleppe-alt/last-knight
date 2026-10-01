@@ -6706,14 +6706,14 @@ catch(e){ storageWorks=false; }
 let lastSaveJSON=null;   // latest save snapshot (for Export even when storage is blocked)
 function encodeSaveCode(){
   try{ const json = lastSaveJSON || JSON.stringify(buildSaveData());
-    return 'KLK1:'+btoa(unescape(encodeURIComponent(json))); }
+    return 'KLKUW1:'+btoa(unescape(encodeURIComponent(json))); }
   catch(e){ return ''; }
 }
 function decodeSaveCode(code){
   try{
     code=String(code||'');
-    const m=code.search(/klk1/i);                   // locate the marker in ANY case (iOS lowercases it)
-    if(m>=0) code=code.slice(m+4);                  // drop the 'klk1' marker
+    const m=code.search(/klkuw1/i);                   // locate the marker in ANY case (iOS lowercases it)
+    if(m>=0) code=code.slice(m+6);                  // drop the 'klk1' marker
     code=code.replace(/[^A-Za-z0-9+/=]/g,'');       // keep only base64 chars (preserves body casing)
     if(code.length<8) return null;
     return JSON.parse(decodeURIComponent(escape(atob(code))));
@@ -6884,8 +6884,8 @@ function openSaveImport(){
     const raw=sioEl('sioText').value||'';
     const s=decodeSaveCode(raw);
     if(!s){ sioEl('sioMsg').style.color='#ff8a8a';
-      sioEl('sioMsg').textContent = !/klk1/i.test(raw)
-        ? '\u2717 No code found \u2014 paste the whole thing, starting with KLK1:'
+      sioEl('sioMsg').textContent = !/klkuw1/i.test(raw)
+        ? '\u2717 No code found \u2014 paste the whole thing, starting with KLKUW1:'
         : ('\u2717 Code looks cut off ('+raw.length+' chars). Copy the ENTIRE code and retry.');
       return; }
     if(!s.player){ sioEl('sioMsg').style.color='#ff8a8a'; sioEl('sioMsg').textContent='\u2717 Decoded, but no hero data inside.'; return; }
