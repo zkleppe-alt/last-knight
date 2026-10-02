@@ -206,7 +206,8 @@
 //  untouched. We grow this one town-at-a-time.
 // ════════════════════════════════════════════════════════════════
 const TILE = 16; let VIEW_TW = 15, VIEW_TH = 11;   // viewport in tiles — recomputed in resize() to fill the screen
-const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const cv = document.getElementById('c');
+let ctx = cv.getContext('2d');   // a `let` so the character outline (sprpolish) can point a draw at its offscreen canvas for a moment; nothing else reassigns it (_legacy: `const cv=…, ctx=…` on one line)
 // ── RENDER SCALE ──────────────────────────────────────────────────────────
 // The world is authored in GAME pixels. RENDER_SCALE is how many device px
 // each game pixel occupies in the backing store; the base transform in
@@ -10925,6 +10926,17 @@ worldDressing();
 
 
 
+// ── THE HOMESTEAD'S YARD — a well by the farmhouse, bee skeps in the flowers, a woodpile by
+//    the barn, a hen-house by the lane. Each stands on a flower tile (never on the plain grass the
+//    knight's own decorations are placed on), made solid like every other prop.
+(function homesteadYard(){
+  const G=WORLD;
+  for(const [kind,x,y] of [['hsWell',31,137],['hsSkep',33,138],['hsSkep',35,138],['hsSkep',37,139],['hsWoodpile',14,147],['hsCoop',11,151]]){
+    if(!G[y] || G[y][x]!==4) continue;
+    G[y][x]=5; decorations.push({x,y,kind,w:1});
+  }
+})();
+
 // ── THE HOMESTEAD APPROACH ──
 // One clean road from the south, joining the Pilgrim's Way to the homestead gate,
 // and tidy away the old redundant/dead pilgrim spur.
@@ -11816,6 +11828,22 @@ worldDressing();
   set(225,26,27); set(226,26,27);
   const txt=signs['214,24']; if(txt!==undefined){ delete signs['214,24']; signs['224,25']=txt; set(224,25,16); }
   for(const d of decorations){ if(d.x<213||d.x>237||d.y<13||d.y>25) continue; const w=d.w||1; for(let y=d.y;y<d.y+w;y++) for(let x=d.x;x<d.x+w;x++) set(x,y,5); }
+})();
+
+// ── THE VILLAGE SIGNS — every town's name-sign where you walk in (Zak, 2026-10-01: "add sign fixes
+//    around the map"; make each one visible and put it by the main entrance). Ashfield, Stormgate,
+//    Shadowmere, Hellgate and the Homestead were already done in their own passes. Each move takes
+//    the text with it and gives the old spot back to the ground around it.
+(function villageSigns(){
+  const G=WORLD;
+  const move=(from,to,ground)=>{ const txt=signs[from]; if(txt===undefined) return; const [fx,fy]=from.split(',').map(Number), [x,y]=to.split(',').map(Number);
+    delete signs[from]; if(ground!==null && G[fy]) G[fy][fx]=ground; signs[to]=txt; G[y][x]=16; };
+  move('34,29','34,31',0);     // Hearthvale: to the south gate, beside the lane in (was 3 rows up the lane)
+  move('32,53','35,74',5);     // Ironhold: from inside the Keep's own footprint (hidden by the Keep) to the head of the south stair
+  move('30,199','30,206',6);   // Saltmere: from the north fence to the top of the beach stair
+  move('79,158','94,147',7);   // Thornwood: from the west gap (no road comes there) to inside the north gate, on the Dusthaven road
+  move('142,62','152,74',null);// Crystalpeak: from the far north-west corner to the head of the south stair
+  if(signs['90,79']===undefined && G[79]){ signs['90,79']='DUSTHAVEN\nWater and shade for the caravan road'; G[79][90]=16; }   // Dusthaven had none: inside the south gate
 })();
 
 // ════════════════════════════════════════════════════════════════
@@ -17910,7 +17938,7 @@ function regionName(){
 // new-grid town boxes: name -> [x0,y0,x1,y1]. Hoisted so cull bounties can name a
 // place too, not just the tile the knight happens to be standing on.
 const REGION_BOX={
-  'Hearthvale':[16,12,49,32], 'The Homestead':[95,4,123,34], 'Ironhold':[14,52,57,75],
+  'Hearthvale':[16,12,49,32], 'The Homestead':[8,120,49,177], 'Ironhold':[14,52,57,75],
   'Saltmere':[12,198,55,224], 'Thornwood':[78,146,105,168], 'Dusthaven':[80,58,105,80],
   'Crystalpeak':[140,60,166,77], 'Ashfield':[138,136,178,165], 'Shadowmere':[205,136,229,159],
   'Hellgate Citadel':[212,12,238,26], 'Stormgate':[150,198,194,228],
@@ -18704,7 +18732,7 @@ function loop(ts){
 // ════════════════════════════════════════════════════════════════
 let _miniBase=null;   // pre-rendered static world (built once)
 const MINI_TOWNS=[
-  ['Hearthvale',33,22],['Homestead',108,18],['Ironhold',31,63],['Saltmere',33,210],
+  ['Hearthvale',33,22],['Homestead',26,146],['Ironhold',31,63],['Saltmere',33,210],
   ['Thornwood',91,157],['Dusthaven',92,69],['Crystalpeak',153,68],['Ashfield',158,150],
   ['Stormgate',172,213],['Shadowmere',217,147],['Hellgate',225,19]
 ];
@@ -19205,6 +19233,7 @@ function draw(){
       // ONE radial gradient covering the whole view: fully TRANSPARENT at the player,
       // smoothly ramping to dark by rFade and staying dark beyond (the last color stop
       // extends outward). A single fill — no seams, no compositing.
+      disillusionMist(camX,camY);                                  // 🌫 mist drifting through the light
       const fg=ctx.createRadialGradient(pcx,pcy,0, pcx,pcy,rFade);
       fg.addColorStop(0, 'rgba(5,6,10,0)');                       // center: clear
       fg.addColorStop(rClear/rFade, 'rgba(5,6,10,0)');           // still clear out to rClear
@@ -19215,6 +19244,7 @@ function draw(){
         lgr.addColorStop(0,'rgba(255,196,90,0.18)'); lgr.addColorStop(1,'rgba(255,196,90,0)');
         ctx.fillStyle=lgr; ctx.fillRect(0,0,VW,VH);
       }
+      disillusionDark(camX,camY,pcx,pcy,rClear);                   // 🌫 false lights and eyes, out in the dark
     }
     return;
   }
@@ -19440,6 +19470,8 @@ function draw(){
     stormgateObjs(objs,camX,camY);    // ⛈ the storm, or the calm
     shadowmereObjs(objs,camX,camY);   // 🏮 the dark pressing in, or the dawn
     hellgateObjs(objs,camX,camY);     // 🔥 the red night, or the light of the new creation
+    overworldObjs(objs,camX,camY);    // 🌿 butterflies, leaves, birds' shadows
+    homesteadObjs(objs,camX,camY);    // 🌾 hens, ducks, and fireflies after dark
     ashfieldObjs(objs,camX,camY);     // 🌾 embers, ash or butterflies
     crystalpeakObjs(objs,camX,camY);  // 💎 prayer flags, snowfall, the aurora
     dusthavenObjs(objs,camX,camY);    // 🐪 the sundial obelisk, camels, blowing sand
@@ -19534,7 +19566,7 @@ function draw(){
   if(place.kind==='portalworld' && portalWorld.id==='sunfall') drawSunfallTier();
   drawCredits();
   // ── DAY/NIGHT tint: the overworld darkens and warms with the hour ──
-  if(place.kind==='overworld'){ const _tc=dayTint(); if(_tc){ ctx.fillStyle=_tc; ctx.fillRect(0,0,VW,VH); } }
+  if(place.kind==='overworld'){ const _tc=dayTint(); if(_tc){ ctx.fillStyle=_tc; ctx.fillRect(0,0,VW,VH); } homesteadNightGlow(camX,camY); }   // 🌾 the farm's lit windows and fireflies glow through the dark
   // ── INN REST fade: black at the midpoint (heal + save fire there), then back in ──
   // ── PORTAL WARP: a full-screen violet/teal swirl. At the midpoint we swap place. ──
   if(portalWarp){ const dur=1000; const p=(performance.now()-portalWarp.t0)/dur;
@@ -23291,6 +23323,7 @@ function drawStairChevron(sx,sy,up,color){
 }
 let _dtint=null, _dtintTown=-1;
 function dungeonTint(){
+  if(dgStyleActive()) return dgTint();                                   // ⛪ each town's crypt in its own stone
   if(_dtint && _dtintTown===dungeon.townId) return _dtint;
   const td=TOWN_DATA[dungeon.townId];
   const th=td && TOWN_THEMES[td.name.toLowerCase()];
@@ -23368,10 +23401,271 @@ function drawLampHead(kind,P,lit){
       return;
   }
 }
+// ════════════════════════════════════════════════════════════════
+//  🌫 THE FOREST OF DISILLUSIONMENT — the cursed wood, redrawn (2026-10-01)
+//  Zak: "let's upgrade the forest of disillusionment". The maze, its walls, chests, the
+//  hidden hollow and Robby's door are all unchanged; this is how it looks:
+//    · the trees: one dark, matted canopy over the maze walls (crowns on a world lattice,
+//      so neighbouring trees knit without seams), and where the wood faces a path, twisted
+//      trunks with knots, roots clawing onto the path, and grey moss hanging from the eaves
+//    · the paths: dry earth and leaf litter, a trodden middle, roots and twigs, pale
+//      toadstools, the odd cobweb strung between two trunks, shade under the canopy edge
+//    · the way on (a gap in the wood with daylight in it) and the way back (root-shored steps)
+//    · in the air: mist drifting through the lamplight; and out in the dark, beyond what
+//      you can see, false lights and pale eyes — which are never there when you get close
+//  Robby's door (78) is still drawn as a tree, and counts as one for its neighbours, so
+//  nothing about it gives it away.
+// ════════════════════════════════════════════════════════════════
+const FDK = { earth:'#382c20', earthL:'#43362a', earthD:'#2a2118', litter:['#5a4026','#6b4a28','#4a3a22','#7a5a30'],
+  bark:'#463424', barkL:'#5a4630', barkD:'#241a10', knot:'#14100a',
+  can0:'#0e1a10', can1:'#18281a', can2:'#223626', can3:'#2e4632', canH:'#46604a',
+  moss:'#6a7a5a', mossD:'#4a5a40', root:'#4a3826', rootL:'#5e4a32', shroom:'#d8d0c0', shroomG:'#b8e0d0' };
+function _fdH(x,y,s){ let h=(x*374761393 + y*668265263 + (s||0)*982451653)>>>0; h=(h^(h>>>13))*1274126177>>>0; return (h^(h>>>16))>>>0; }
+const _fdT = ()=>performance.now()/1000;
+const _fdTree=(x,y)=>{ const g=dungeon.grid; if(!g[y]||g[y][x]===undefined) return true; const v=g[y][x]; return v===1||v===78; };   // off the edge counts as wood
+let _fdC=null;   // where the painters draw (a cache canvas)
+function _fq(x,y,w,h,c){ _fdC.fillStyle=c; _fdC.fillRect(x,y,w,h); }
+// ── the canopy: crowns centred on a jittered 8px lattice in maze pixels; every tile paints the ones that touch it ──
+function _fdCanopy(ox,oy,x,y,maxY){ const g=_fdC, X0=x*TILE, Y0=y*TILE;
+  g.save(); g.beginPath(); g.rect(ox,oy,TILE,maxY); g.clip();
+  _fq(ox,oy,TILE,maxY,FDK.can0);
+  for(let pass=0;pass<3;pass++) for(let j=Math.floor((Y0-12)/8);j<=Math.floor((Y0+TILE+12)/8);j++) for(let i=Math.floor((X0-12)/8);i<=Math.floor((X0+TILE+12)/8);i++){
+    const k=_fdH(i,j,3), cx=i*8+4+((k%7)-3), cy=j*8+4+(((k>>>3)%7)-3), r=6+((k>>>6)%4);
+    const tx=Math.floor(cx/TILE), ty=Math.floor(cy/TILE); if(!_fdTree(tx,ty)) continue;           // a crown grows only from a tree
+    const sx=ox+(cx-X0), sy=oy+(cy-Y0); if(sx+r<ox||sx-r>ox+TILE||sy+r<oy||sy-r>oy+maxY) continue;
+    g.fillStyle=[FDK.can1,FDK.can2,FDK.can3][pass]; g.beginPath(); g.arc(sx-pass*1.2,sy-pass*1.5,r-pass*2.2,0,7); g.fill(); }
+  for(let i=0;i<2;i++){ const k=_fdH(x,y,20+i); if(k%3) continue; _fq(ox+2+(k>>>4)%11,oy+2+((k>>>8)%Math.max(2,maxY-4)),2,1,FDK.canH); }   // a leaf catching the light
+  g.restore(); }
+function _fdTreeTile(ox,oy,x,y){
+  if(_fdTree(x,y+1)){ _fdCanopy(ox,oy,x,y,TILE); return; }                                  // deep in the wood: canopy only
+  // the wood's face onto a path: the canopy's eave, then trunks, roots and hanging moss
+  _fq(ox,oy,TILE,TILE,'#1c1610');
+  const h=_fdH(x,y,4), n=1+(h%2);
+  for(let i=0;i<n;i++){ const k=_fdH(x,y,40+i), tx=ox+(n===1?5+(k%4):(i?10:2)+(k%2)), lean=((k>>>4)%3)-1, w=n===1?4:3;
+    for(let r=0;r<11;r++){ const yy=oy+5+r, xx=tx+Math.round(lean*(10-r)/6); _fq(xx,yy,w,1,FDK.bark); _fq(xx,yy,1,1,'#76603e'); _fq(xx+w-1,yy,1,1,FDK.barkD); }   // a twisted trunk, lit down one side
+    _fq(tx+1,oy+9,1,2,FDK.knot); _fq(tx+(w>3?2:1),oy+12,1,1,FDK.knot);
+    if((k>>>7)%4===0){ _fq(tx,oy+8,1,1,'#0a0806'); _fq(tx+w-1,oy+8,1,1,'#0a0806'); _fq(tx+1,oy+10,w-2,1,'#0a0806'); }   // now and then a face in the bark
+    _fq(tx-3,oy+14,3,2,FDK.root); _fq(tx+w,oy+14,3,2,FDK.root); _fq(tx-4,oy+15,2,1,FDK.rootL); _fq(tx+w+2,oy+15,2,1,FDK.rootL); }   // roots clawing at the path
+  _fdCanopy(ox,oy,x,y,7);
+  _fq(ox,oy+6,TILE,2,'rgba(0,0,0,0.5)');                                                     // the dark under the eave
+  for(let i=0;i<5;i++){ const k=_fdH(x,y,50+i); if(k%3===0) continue; const mx=ox+1+((k>>>3)%14), ml=4+((k>>>7)%7);   // grey moss hanging in long strands
+    for(let r=0;r<ml;r++) _fq(mx+(r>ml-3?((k>>>12)%2):0),oy+6+r,1,1,r<ml-1?'#7a8a72':'#9aa894'); }
+}
+function _fdFloor(ox,oy,x,y,kind){
+  const h=_fdH(x,y,5);
+  _fq(ox,oy,TILE,TILE,FDK.earth);
+  const open=(a,b)=>!_fdTree(a,b); const nO=(open(x,y-1)?1:0)+(open(x,y+1)?1:0)+(open(x-1,y)?1:0)+(open(x+1,y)?1:0);
+  if(nO>=2){ if(open(x,y-1)&&open(x,y+1)) _fq(ox+4,oy,8,TILE,FDK.earthL); if(open(x-1,y)&&open(x+1,y)) _fq(ox,oy+4,TILE,8,FDK.earthL); _fq(ox+4,oy+4,8,8,FDK.earthL); }   // the trodden middle
+  for(let i=0;i<6;i++){ const k=_fdH(x,y,60+i); _fq(ox+(k%15),oy+((k>>>4)%15),2,1,FDK.litter[(k>>>8)%4]); }                       // leaf litter
+  if(h%5===0){ const tx0=ox+2+(h>>>5)%10, ty0=oy+3+(h>>>9)%10; _fq(tx0,ty0,5,1,FDK.barkL); _fq(tx0+3,ty0-1,2,1,FDK.barkL); }        // a twig
+  if(h%7===0){ const sx=ox+3+(h>>>6)%9, sy=oy+8+(h>>>10)%5; _fq(sx,sy+2,1,2,'#cfc4b0'); _fq(sx-1,sy,3,2,FDK.shroom); _fq(sx,sy,1,1,'#ffffff'); }   // a pale toadstool
+  // roots creeping in from the wood on either side
+  if(_fdTree(x-1,y)){ const k=_fdH(x,y,70); _fq(ox,oy+4+(k%6),3+(k>>>4)%3,1,FDK.root); _fq(ox,oy+10+((k>>>8)%4),2,1,FDK.root); }
+  if(_fdTree(x+1,y)){ const k=_fdH(x,y,71); const l=3+(k>>>4)%3; _fq(ox+TILE-l,oy+5+(k%6),l,1,FDK.root); _fq(ox+TILE-2,oy+11+((k>>>8)%3),2,1,FDK.root); }
+  if(_fdTree(x,y-1)){ _fq(ox,oy,TILE,5,'rgba(0,0,0,0.42)'); _fq(ox,oy+5,TILE,2,'rgba(0,0,0,0.2)'); }                                 // shade from the canopy above
+  if(_fdTree(x-1,y)&&_fdTree(x+1,y)&&h%17===0){ _fdC.strokeStyle='rgba(220,220,230,0.35)'; _fdC.lineWidth=1; _fdC.beginPath();          // a cobweb strung across
+    _fdC.strokeStyle='rgba(220,220,230,0.22)'; for(let i=0;i<3;i++){ _fdC.moveTo(ox,oy+3+i*3); _fdC.quadraticCurveTo(ox+8,oy+5+i*4,ox+TILE,oy+3+i*3); } _fdC.moveTo(ox+2,oy+2); _fdC.lineTo(ox+8,oy+12); _fdC.moveTo(ox+14,oy+2); _fdC.lineTo(ox+8,oy+12); _fdC.stroke(); }
+  if(kind==='on'){ // the way on: a gap in the wood with daylight in it, worn stone steps
+    for(let i=0;i<4;i++){ const yy=oy+i*4, c=['#7a7060','#8a8068','#9a9074','#aaa080'][i]; _fq(ox+3,yy,TILE-6,3,c); _fq(ox+3,yy+3,TILE-6,1,'#3a3428'); if((i+h)%2===0) _fq(ox+4+((i*5+h)%7),yy,2,1,'#5a6a3a'); }
+    _fq(ox+2,oy,1,TILE,FDK.barkD); _fq(ox+TILE-3,oy,1,TILE,FDK.barkD); }
+  if(kind==='back'){ // the way back: earthen steps, a root shoring each
+    for(let i=0;i<4;i++){ const yy=oy+i*4, c=['#33402a','#2b3724','#232e1d','#1b2416'][i]; _fq(ox+3,yy,TILE-6,3,c); _fq(ox+3,yy,TILE-6,1,FDK.rootL); _fq(ox+3,yy+3,TILE-6,1,'#10160c'); } }
+}
+// ── the tile cache (per maze visit; keyed by the 3×3 round each tile) ──
+const _fdTiles=new Map(); let _fdKey='';
+function _fdSprite(x,y,paint){
+  const key=(dungeon.townId||0)+':'+(dungeon.forestSeed||0)+':'+dungeon.floorIdx+':'+(dungeon.grid.length)+'x'+(dungeon.grid[0]||[]).length;
+  if(key!==_fdKey){ _fdTiles.clear(); _fdKey=key; }
+  const g=dungeon.grid; let sig=0; for(let b=-1;b<=1;b++) for(let a=-1;a<=1;a++){ const v=g[y+b]&&g[y+b][x+a]; sig=(sig*31+((v===undefined?255:(v===78?1:v))+1))|0; }
+  const k=y*1000+x, e=_fdTiles.get(k); if(e&&e.s===sig) return e.c;
+  const c=document.createElement('canvas'); c.width=TILE; c.height=TILE; const was=_fdC; _fdC=c.getContext('2d');
+  try{ paint(0,0); } finally{ _fdC=was; }
+  _fdTiles.set(k,{s:sig,c}); return c; }
+function drawDisillusionTile(t,sx,sy,x,y){
+  let paint=null;
+  if(t===1) paint=(ox,oy)=>_fdTreeTile(ox,oy,x,y);
+  else if(t===0) paint=(ox,oy)=>_fdFloor(ox,oy,x,y,null);
+  else if(t===2) paint=(ox,oy)=>_fdFloor(ox,oy,x,y,'on');
+  else if(t===8) paint=(ox,oy)=>_fdFloor(ox,oy,x,y,'back');
+  if(!paint) return false;                                      // chests, the Sage's hollow: the engine's own art
+  ctx.drawImage(_fdSprite(x,y,paint),sx,sy);
+  if(t===2){ ctx.save(); ctx.globalAlpha=0.22+0.06*Math.sin(_fdT()*1.3); ctx.fillStyle='#ffe9b0'; ctx.beginPath(); ctx.arc(sx+TILE/2,sy+2,TILE*1.2,0,7); ctx.fill(); ctx.restore(); drawStairChevron(sx,sy,true,'#fff4d0'); }   // daylight through the gap
+  if(t===8) drawStairChevron(sx,sy,false,'#9ab080');
+  if(t===0){ const h=_fdH(x,y,5); if(h%7===0){ const f=0.25+0.25*Math.sin(_fdT()*1.7+h); ctx.globalAlpha=f; px(sx+2+(h>>>6)%9,sy+7+(h>>>10)%5,5,4,'#b8e0d0'); ctx.globalAlpha=1; } }   // the toadstools glow faintly
+  return true;
+}
+// ── the air: mist through the light (under the fog) and what waits in the dark (over it) ──
+function disillusionMist(camX,camY){
+  const t=_fdT();
+  for(let i=0;i<14;i++){ const k=_fdH(i,7,9), r=28+(k%30), sp=5+(k>>>6)%7, X=((t*sp+(k%600))%(VW+r*4))-r*2, Y=((k>>>8)%Math.max(1,VH))+Math.sin(t*0.3+i)*12;   // soft banks of mist, drifting
+    const a=0.16+0.06*Math.sin(t*0.5+i), g=ctx.createRadialGradient(X,Y,0,X,Y,r); g.addColorStop(0,`rgba(170,178,186,${a})`); g.addColorStop(1,'rgba(170,178,186,0)');
+    ctx.fillStyle=g; ctx.save(); ctx.translate(X,Y); ctx.scale(2.2,0.7); ctx.translate(-X,-Y); ctx.fillRect(X-r,Y-r,r*2,r*2); ctx.restore(); }
+}
+function disillusionDark(camX,camY,pcx,pcy,rClear){
+  const t=_fdT(), g=dungeon.grid, PX=player.x/TILE, PY=player.y/TILE;
+  // candidate spots: open floor 6-11 tiles off, chosen by the region you are in, so they stay put while you watch
+  const rx=Math.floor(PX/6), ry=Math.floor(PY/6);
+  for(let i=0;i<7;i++){ const k=_fdH(rx*7+i,ry*13+i,11), tx=Math.floor(PX)+((k%23)-11), ty=Math.floor(PY)+(((k>>>5)%23)-11);
+    if(!g[ty]||g[ty][tx]!==0) continue; const d=Math.hypot(tx-PX,ty-PY); if(d<5.5) continue;
+    const fade=Math.min(1,(d-5.5)/2.5);                                                         // nearer, and it is not there
+    const X=(tx+0.5)*TILE-camX, Y=(ty+0.5)*TILE-camY;
+    if(i%2===0){ // a false light, drifting
+      const a=t*0.6+k, wx=X+Math.cos(a)*10, wy=Y+Math.sin(a*1.3)*6-4, on=fade*(0.55+0.45*Math.sin(t*1.8+k));
+      const gr=ctx.createRadialGradient(wx,wy,0,wx,wy,14); gr.addColorStop(0,`rgba(180,235,220,${0.6*on})`); gr.addColorStop(1,'rgba(180,235,220,0)'); ctx.fillStyle=gr; ctx.fillRect(wx-14,wy-14,28,28);
+      ctx.globalAlpha=on; px(Math.round(wx)-1,Math.round(wy)-1,2,2,'#eafff8'); ctx.globalAlpha=1; }
+    else { // eyes in the dark, blinking
+      const blink=Math.sin(t*0.7+k)>0.92 || Math.sin(t*0.23+k*1.3)<-0.6; if(blink) continue;
+      ctx.globalAlpha=fade*0.75; px(Math.round(X)-4,Math.round(Y)-3,2,1,'#e8e0b0'); px(Math.round(X)+2,Math.round(Y)-3,2,1,'#e8e0b0'); ctx.globalAlpha=1; }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  ⛪ THE CHAPEL CRYPTS — each town's dungeon in its own stone (2026-10-01)
+//  Zak: "can we work on editing the dungeons to be upgraded as well". Drawing only: every
+//  maze, library, doctrine and sanctum floor keeps its map, puzzles and props. Each town's
+//  crypt now matches the village above it:
+//    Hearthvale — honey sandstone, warm and dry · Ironhold — granite bound in riveted iron
+//    Saltmere — a sea cave, wet rock, barnacles and weed, pools on the floor
+//    Thornwood — earth walls laced with roots, moss floor, toadstools
+//    Dusthaven — carved sandstone, glyph bands, sand drifted on the floor
+//    Crystalpeak — ice, crystal growing from the walls, frost on the floor
+//    Ashfield — basalt with fire in its seams, ash underfoot
+//    Stormgate — royal marble, blue and gold, a polished checker floor
+//    Shadowmere — slick black stone, standing water, lantern niches
+//    Hellgate — obsidian and iron, fire in the cracks
+//  The engine's shared dungeon colours (dungeonTint) are set from the same palette, so the
+//  stairs, chests, lampstands, seals and every special tile sit in the same stone. Walls and
+//  plain floor are drawn here, once per tile into a cache; the torches flicker live.
+// ════════════════════════════════════════════════════════════════
+function _dgH(x,y,s){ let h=(x*374761393 + y*668265263 + (s||0)*982451653)>>>0; h=(h^(h>>>13))*1274126177>>>0; return (h^(h>>>16))>>>0; }
+const DG_STYLES = [
+  { key:'hearth',   wall:'ashlar',   floor:'flag',    flame:'#ffb24a', glass:true,
+    p:{ capTop:'#b89a6e', capLite:'#d8bc8a', capDark:'#7a6244', capEdge:'#e8d0a0', face:'#8a6e4c', course:'#9a7c56', faceLit:'#b0906a', mortar:'#3a2c1c', floorA:'#4a3c2c', floorB:'#443626', seam:'#5a4a38' } },
+  { key:'iron',     wall:'iron',     floor:'grate',   flame:'#ff8a3a', glass:false,
+    p:{ capTop:'#7a7a80', capLite:'#9a9aa2', capDark:'#4a4a52', capEdge:'#b0b0ba', face:'#56565e', course:'#62626a', faceLit:'#7a7a84', mortar:'#1c1c22', floorA:'#2e2e34', floorB:'#2a2a30', seam:'#3c3c44' } },
+  { key:'sea',      wall:'rock',     floor:'wet',     flame:'#f0d070', glass:false,
+    p:{ capTop:'#5a6a6a', capLite:'#7a8a88', capDark:'#3a4846', capEdge:'#9aaaa6', face:'#3e4c4c', course:'#465656', faceLit:'#5e6e6c', mortar:'#1a2424', floorA:'#2a3434', floorB:'#263030', seam:'#344040' } },
+  { key:'roots',    wall:'earth',    floor:'moss',    flame:'#ffc060', glass:false,
+    p:{ capTop:'#4a5a34', capLite:'#5e7040', capDark:'#2e3a20', capEdge:'#7a8a54', face:'#4a3a28', course:'#54422e', faceLit:'#6a5438', mortar:'#1e160e', floorA:'#2e2a1c', floorB:'#2a2618', seam:'#3a3424' } },
+  { key:'sand',     wall:'carved',   floor:'sand',    flame:'#ffc24a', glass:false,
+    p:{ capTop:'#c8a46a', capLite:'#e4c48a', capDark:'#8a6a40', capEdge:'#f0d8a8', face:'#a8804e', course:'#b88e58', faceLit:'#d0a670', mortar:'#4a3418', floorA:'#5a4630', floorB:'#54402a', seam:'#6a543a' } },
+  { key:'ice',      wall:'ice',      floor:'frost',   flame:'#bfe8ff', glass:false,
+    p:{ capTop:'#a8c8dc', capLite:'#d8eef8', capDark:'#6a8aa0', capEdge:'#eef8ff', face:'#7a9ab0', course:'#86a6bc', faceLit:'#a6c4d6', mortar:'#2a3a4a', floorA:'#3a4a5a', floorB:'#364656', seam:'#4a5c6e' } },
+  { key:'basalt',   wall:'basalt',   floor:'ash',     flame:'#ff6a2a', glass:false,
+    p:{ capTop:'#4a4448', capLite:'#625a5e', capDark:'#2a2628', capEdge:'#7a7276', face:'#36302e', course:'#3e3836', faceLit:'#524a48', mortar:'#140e0c', floorA:'#2a2422', floorB:'#26201e', seam:'#3a3230' } },
+  { key:'marble',   wall:'marble',   floor:'checker', flame:'#ffd27a', glass:true,
+    p:{ capTop:'#d8d8e0', capLite:'#f4f4fa', capDark:'#9a9aa8', capEdge:'#ffffff', face:'#aeaebc', course:'#bcbcc8', faceLit:'#d4d4de', mortar:'#5a5a6a', floorA:'#2e3a5e', floorB:'#26304e', seam:'#8a7432' } },
+  { key:'mere',     wall:'slick',    floor:'pool',    flame:'#a8d8ff', glass:false,
+    p:{ capTop:'#3e4250', capLite:'#545868', capDark:'#262832', capEdge:'#6a6e80', face:'#2c2e38', course:'#343642', faceLit:'#464a58', mortar:'#101118', floorA:'#1e2028', floorB:'#1c1e26', seam:'#2a2c36' } },
+  { key:'hell',     wall:'obsidian', floor:'cracked', flame:'#ff5a1a', glass:false,
+    p:{ capTop:'#5a4a5c', capLite:'#76627a', capDark:'#2e2632', capEdge:'#8a7690', face:'#34283a', course:'#3c2e42', faceLit:'#56465e', mortar:'#0a0608', floorA:'#1c1618', floorB:'#1a1416', seam:'#2a2024' } },
+];
+// a crypt is styled in every chapel dungeon (towns 0-9), never in the special places
+function dgStyleActive(){ return place && place.kind==='dungeon' && dungeon && typeof dungeon.townId==='number' && dungeon.townId>=0 && dungeon.townId<=9
+  && !dungeon.disillusion && !dungeon.forest && !dungeon.monkCave && !dungeon.inGlade; }
+function dgStyle(){ return DG_STYLES[dungeon.townId]; }
+function dgTint(){ return dgStyle().p; }
+let _dgC=null;
+function _dq(x,y,w,h,c){ _dgC.fillStyle=c; _dgC.fillRect(x,y,w,h); }
+const _dgMix=(a,b,t)=>{ const A=parseInt(a.slice(1),16), B=parseInt(b.slice(1),16); const r=Math.round(((A>>16)&255)*(1-t)+((B>>16)&255)*t), g=Math.round(((A>>8)&255)*(1-t)+((B>>8)&255)*t), bb=Math.round((A&255)*(1-t)+(B&255)*t); return '#'+((1<<24)|(r<<16)|(g<<8)|bb).toString(16).slice(1); };
+// ── the wall face: a lit cap, a hard drop, then courses in the town's own masonry ──
+function _dgFace(ox,oy,x,y,S){ const P=S.p, h=_dgH(x,y,1);
+  _dq(ox,oy,TILE,TILE,P.face); _dq(ox,oy,TILE,3,P.capTop); _dq(ox,oy,TILE,1,P.capLite); _dq(ox,oy+3,TILE,1,'#0a0810');
+  const dark=(c,k)=>_dgMix(c,'#000000',k);
+  switch(S.wall){
+    case 'ashlar': case 'carved': case 'marble': case 'obsidian': {                                            // dressed blocks, two courses
+      for(let c=0;c<2;c++){ const cy=oy+4+c*5, off=((x+c)%2)*8; _dq(ox,cy,TILE,4,c?dark(P.course,.22):P.course); _dq(ox,cy,TILE,1,c?dark(P.faceLit,.25):P.faceLit); _dq(ox,cy+4,TILE,1,P.mortar); _dq(ox+off,cy+1,1,3,P.mortar); }
+      if(S.wall==='carved' && h%3===0){ for(let i=0;i<4;i++) _dq(ox+2+i*4,oy+6,2,2,P.mortar); }                                           // a band of glyphs
+      if(S.wall==='marble'){ _dq(ox,oy+13,TILE,1,'#2a4a9a'); if(h%5===0){ _dq(ox+3+(h>>>4)%8,oy+5,4,1,'#9aa0b0'); } }                      // a blue string course, veining
+      if(S.wall==='obsidian' && h%3===0){ _dq(ox+2+(h>>>4)%10,oy+5,1,7,'#a82a10'); _dq(ox+2+(h>>>4)%10,oy+8,3,1,'#a82a10'); }           // fire in a crack (lit live)
+      break; }
+    case 'iron': { for(let c=0;c<2;c++){ const cy=oy+4+c*5; _dq(ox,cy,TILE,4,c?dark(P.course,.22):P.course); _dq(ox,cy+4,TILE,1,P.mortar); _dq(ox+((x+c)%2)*8,cy+1,1,3,P.mortar); }
+      _dq(ox,oy+8,TILE,2,'#3a3a40'); _dq(ox,oy+8,TILE,1,'#6a6a74'); for(let i=2;i<TILE;i+=5) _dq(ox+i,oy+8,1,1,'#a0a0aa');               // an iron band, riveted
+      if(h%4===0){ _dq(ox+3,oy+10,1,4,'#7a4a2a'); _dq(ox+4,oy+12,1,2,'#6a3a1a'); } break; }                                                 // rust weeping
+    case 'rock': case 'slick': { _dq(ox,oy+4,TILE,9,P.course);                                                                              // rough rock, wet
+      for(let i=0;i<4;i++){ const k=_dgH(x,y,10+i); _dq(ox+(k%12),oy+4+((k>>>4)%7),4+(k>>>8)%4,2,i%2?P.faceLit:dark(P.course,.25)); }
+      if(S.wall==='rock'){ for(let i=0;i<3;i++){ const k=_dgH(x,y,20+i); _dq(ox+(k%14),oy+10+((k>>>4)%3),2,2,'#c8c0b0'); } if(h%2===0){ _dq(ox+3+(h>>>4)%8,oy+11,1,4,'#3a6a3a'); _dq(ox+4+(h>>>4)%8,oy+12,1,3,'#2a5a2a'); } }   // barnacles, weed
+      else { if(h%3===0) _dq(ox+4+(h>>>4)%8,oy+4,1,9,'rgba(140,170,200,0.35)'); }                                                          // water running down
+      break; }
+    case 'earth': { _dq(ox,oy+4,TILE,9,P.course);                                                                                           // packed earth, roots through it
+      for(let i=0;i<3;i++){ const k=_dgH(x,y,30+i); _dq(ox+(k%14),oy+5+((k>>>4)%7),2,1,'#3a2c1c'); }
+      for(let i=0;i<2;i++){ const k=_dgH(x,y,40+i), rx=ox+2+(k%11); for(let r=0;r<9;r++) _dq(rx+Math.round(Math.sin(r*0.8+k)*1.2),oy+4+r,2,1,r%3?'#6a5236':'#7a6040'); }
+      if(h%3===0){ _dq(ox+5+(h>>>4)%6,oy+11,3,2,'#d8c8a0'); _dq(ox+6+(h>>>4)%6,oy+13,1,1,'#b8a880'); } break; }                             // a toadstool in a crevice
+    case 'ice': { _dq(ox,oy+4,TILE,9,P.course); _dq(ox+2,oy+4,3,9,P.faceLit); _dq(ox+9,oy+6,2,7,'#c8e4f4');                              // ice, glassy
+      if(h%3===0){ const cx=ox+4+(h>>>4)%8; for(let r=0;r<5;r++) _dq(cx-(r>>1),oy+12-r,1+r,1,r<2?'#eaf8ff':'#8ac8e8'); _dq(cx,oy+7,1,1,'#ffffff'); }   // a crystal growing out
+      break; }
+    case 'basalt': { for(let i=0;i<3;i++){ const cx=ox+i*6; _dq(cx,oy+4,5,9,i%2?P.course:dark(P.course,.15)); _dq(cx,oy+4,5,1,P.faceLit); _dq(cx+5,oy+4,1,9,P.mortar); }   // basalt columns
+      if(h%3===0) _dq(ox+5,oy+6,1,6,'#b8401a'); break; }
+  }
+  _dq(ox,oy+TILE-3,TILE,1,dark(P.face,.45)); _dq(ox,oy+TILE-2,TILE,2,'#0a0810');
+}
+function _dgTop(ox,oy,x,y,S){ const P=S.p, h=_dgH(x,y,2), g=dungeon.grid;
+  _dq(ox,oy,TILE,TILE,P.capTop); _dq(ox,oy,TILE,2,P.capLite); _dq(ox,oy+TILE-2,TILE,2,P.capDark);
+  _dq(ox+2+h%7,oy+4+(h>>>4)%6,3,2,P.capDark); _dq(ox+1+(h>>>8)%9,oy+3+(h>>>12)%7,2,1,P.capEdge);
+  if(S.wall==='earth' && h%2===0){ _dq(ox+3+(h>>>5)%8,oy+5,4,3,'#5e7a3e'); }                                                                  // turf on top of the earth
+  if(S.wall==='ice'){ _dq(ox+4,oy+6,6,1,'#eaf8ff'); }
+  if(S.wall==='marble' && h%4===0){ _dq(ox+3,oy+8,8,1,'#b0b0be'); }
+  if(S.wall==='rock'||S.wall==='slick'){ if(h%3===0) _dq(ox+4+(h>>>4)%6,oy+7,3,2,'rgba(120,150,170,0.45)'); }
+  const gA=g[y-1]?g[y-1][x]:undefined, gL=g[y][x-1], gR=g[y][x+1];
+  if(gA===undefined) _dq(ox,oy,TILE,1,'#0a0810'); if(gL===undefined) _dq(ox,oy,1,TILE,'#0a0810'); if(gR===undefined) _dq(ox+TILE-1,oy,1,TILE,'#0a0810');
+}
+function _dgFloor(ox,oy,x,y,S){ const P=S.p, h=_dgH(x,y,3), g=dungeon.grid;
+  switch(S.floor){
+    case 'checker': { const w=(x+y)%2===0; _dq(ox,oy,TILE,TILE,w?P.floorA:P.floorB); _dq(ox,oy,TILE,1,P.seam); _dq(ox,oy,1,TILE,P.seam); if(w){ _dq(ox+7,oy+7,2,2,'#a8902e'); } if(h%6===0) _dq(ox+3,oy+4,5,1,'#4a5a86'); break; }   // polished blue marble, gilt at the corners
+    case 'grate': { _dq(ox,oy,TILE,TILE,(x+y)%2?P.floorA:P.floorB); _dq(ox,oy,TILE,1,P.seam); _dq(ox,oy,1,TILE,P.seam);
+      if(h%6===0){ _dq(ox+3,oy+3,10,10,'#1a1a1e'); for(let i=0;i<4;i++) _dq(ox+4+i*2+i,oy+3,1,10,'#4a4a52'); } break; }                       // a grate in the floor
+    case 'sand': { _dq(ox,oy,TILE,TILE,(x+y)%2?P.floorA:P.floorB); _dq(ox,oy,TILE,1,P.seam); _dq(ox,oy,1,TILE,P.seam);
+      const drift=(g[y][x-1]===1)||(g[y-1]&&g[y-1][x]===1); if(drift){ _dq(ox,oy,TILE,4,'#a88a5a'); _dq(ox,oy+4,8,2,'#a88a5a'); } break; }   // sand drifted against the walls
+    case 'wet': case 'pool': { _dq(ox,oy,TILE,TILE,(x+y)%2?P.floorA:P.floorB); for(let i=0;i<3;i++){ const k=_dgH(x,y,50+i); _dq(ox+(k%13),oy+((k>>>4)%13),3,3,_dgMix(P.floorA,'#000000',.2)); }
+      if(h%4===0){ _dgC.fillStyle=S.floor==='pool'?'#141a24':'#1e2e34'; _dgC.beginPath(); _dgC.ellipse(ox+8,oy+9,6,3,0,0,7); _dgC.fill(); _dq(ox+5,oy+8,3,1,S.floor==='pool'?'#3a4a60':'#4a6a74'); }   // standing water
+      if(S.floor==='wet' && h%7===0){ _dq(ox+3+(h>>>5)%9,oy+3+(h>>>9)%9,2,1,'#e0d8c8'); } break; }                                          // a shell
+    case 'moss': { _dq(ox,oy,TILE,TILE,P.floorA); for(let i=0;i<4;i++){ const k=_dgH(x,y,60+i); _dq(ox+(k%13),oy+((k>>>4)%13),3+(k>>>8)%3,2,i%2?'#3a4a26':'#2e3a1e'); }
+      if(h%9===0){ _dq(ox+6,oy+10,1,2,'#d8c8a0'); _dq(ox+5,oy+9,3,1,'#c84a3a'); } break; }
+    case 'frost': { _dq(ox,oy,TILE,TILE,(x+y)%2?P.floorA:P.floorB); _dq(ox,oy,TILE,1,P.seam); _dq(ox,oy,1,TILE,P.seam);
+      for(let i=0;i<2;i++){ const k=_dgH(x,y,70+i); _dq(ox+(k%12),oy+((k>>>4)%12),4,1,'#8aa8c0'); _dq(ox+(k%12)+1,oy+((k>>>4)%12)-1,1,3,'#8aa8c0'); } break; }   // frost stars
+    case 'ash': { _dq(ox,oy,TILE,TILE,(x+y)%2?P.floorA:P.floorB); for(let i=0;i<4;i++){ const k=_dgH(x,y,80+i); _dq(ox+(k%14),oy+((k>>>4)%14),2,1,'#5a5250'); } break; }
+    case 'cracked': { _dq(ox,oy,TILE,TILE,(x+y)%2?P.floorA:P.floorB); _dq(ox,oy,TILE,1,P.seam); _dq(ox,oy,1,TILE,P.seam); if(h%3===0){ let cx=ox+3+(h%9), cy=oy+2; for(let i=0;i<6;i++){ _dq(cx,cy,1,2,'#7a1e0a'); cx+=((h>>>(i*2))&1)?1:-1; cy+=2; } } break; }   // a jagged crack, fire far down in it
+    default: { _dq(ox,oy,TILE,TILE,(x+y)%2?P.floorA:P.floorB); _dq(ox,oy,TILE,1,P.seam); _dq(ox,oy,1,TILE,P.seam); if(h%5===0) _dq(ox+2+(h>>>4)%9,oy+3+(h>>>8)%9,3,1,_dgMix(P.floorA,'#000000',.3)); }   // worn flagstones
+  }
+  if(g[y-1] && g[y-1][x]===1){ _dgC.fillStyle='rgba(4,2,8,0.42)'; _dgC.fillRect(ox,oy,TILE,5); _dgC.fillStyle='rgba(4,2,8,0.2)'; _dgC.fillRect(ox,oy+5,TILE,2); }   // the wall's shadow
+}
+const _dgTiles=new Map(); let _dgKey='';
+function _dgSprite(x,y,kind,paint){
+  const key=dungeon.townId+':'+dungeon.floorIdx+':'+(dungeon.floors[dungeon.floorIdx])+':'+dungeon.grid.length+'x'+(dungeon.grid[0]||[]).length;
+  if(key!==_dgKey){ _dgTiles.clear(); _dgKey=key; }
+  const g=dungeon.grid; let sig=kind; for(let b=-1;b<=1;b++) for(let a=-1;a<=1;a++){ const v=g[y+b]&&g[y+b][x+a]; sig=(sig*31+((v===undefined?255:(v===1?1:v===0?0:2))+1))|0; }
+  const k=y*1000+x, e=_dgTiles.get(k); if(e&&e.s===sig) return e.c;
+  const c=document.createElement('canvas'); c.width=TILE; c.height=TILE; const was=_dgC; _dgC=c.getContext('2d');
+  try{ paint(0,0); } finally{ _dgC=was; }
+  _dgTiles.set(k,{s:sig,c}); return c; }
+function drawCryptTile(t,sx,sy,x,y,below){
+  const S=dgStyle(); if(!S) return false;
+  if(t===1){
+    const face=below!==1;
+    ctx.drawImage(_dgSprite(x,y,face?1:2,(ox,oy)=>face?_dgFace(ox,oy,x,y,S):_dgTop(ox,oy,x,y,S)),sx,sy);
+    if(face){ const h=_dgH(x,y,1), now=performance.now()/1000;
+      if(S.glass && (h%11===4||h%11===7)){ px(sx+5,sy+5,6,9,'#0e0a1c'); px(sx+6,sy+6,1,7,'#3a5a86'); px(sx+7,sy+6,2,7,(h%2)?'#8a3644':'#221830'); px(sx+9,sy+6,1,7,'#37704c'); px(sx+6,sy+5,4,1,S.p.capEdge); }   // a stained-glass slit
+      else if(x%4===2){ const fl=Math.floor(now*8+x)%3;                                                                                  // the torches, a rhythm down the halls
+        px(sx+7,sy+9,2,5,'#3a2c18'); px(sx+5,sy+12,6,1,'#2a2010');
+        if(S.key==='ice'){ px(sx+6,sy+5,4,5,'#d8f4ff'); px(sx+7,sy+4,2,2,'#ffffff'); }                                                   // a crystal lamp
+        else if(S.key==='mere'){ px(sx+5,sy+5,6,6,'#0e0a14'); px(sx+6,sy+6,4,4,'#a8d8ff'); }                                            // a hooded lantern
+        else { px(sx+6,sy+6,4,3,S.flame); px(sx+7,sy+5-(fl===1?1:0),2,2,'#fff0b0'); }
+        ctx.globalAlpha=0.12+fl*0.02; ctx.fillStyle=S.flame; ctx.beginPath(); ctx.arc(sx+8,sy+10,TILE,0,7); ctx.fill(); ctx.globalAlpha=1; }
+      if((S.wall==='obsidian'||S.wall==='basalt') && h%3===0){ ctx.globalAlpha=0.4+0.4*Math.sin(now*2+x); px(sx+(S.wall==='basalt'?5:2+(h>>>4)%10),sy+6,1,6,'#ff7a2a'); ctx.globalAlpha=1; }   // the cracks glow
+      if(S.wall==='slick' && h%3===0){ const d=(now*0.6+h%10/10)%1; px(sx+4+(h>>>4)%8,sy+4+Math.round(d*9),1,2,'#8ab0d0'); }                // a drip running down
+    }
+    return true; }
+  if(t===0){ ctx.drawImage(_dgSprite(x,y,0,(ox,oy)=>_dgFloor(ox,oy,x,y,S)),sx,sy);
+    if((S.floor==='pool'||S.floor==='wet') && _dgH(x,y,3)%4===0 && Math.sin(performance.now()/700+x*1.3+y)>0.8){ ctx.strokeStyle='rgba(180,210,230,0.5)'; ctx.lineWidth=1; ctx.beginPath(); ctx.ellipse(sx+8,sy+9,3,1.5,0,0,7); ctx.stroke(); }   // a drip lands
+    return true; }
+  return false;
+}
+
 function drawDungeonTile(t,sx,sy,x,y){
   // Robby's door renders as an ordinary wall. Remapped here rather than given
   // its own case, so it cannot drift a single pixel away from its neighbours.
   if(t===T_ROBBYDOOR) t=1;
+  if(dungeon.disillusion && !dungeon.inGlade && drawDisillusionTile(t,sx,sy,x,y)) return;   // 🌫 the cursed wood, redrawn
   const hsh=((x*374761393 + y*668265263)>>>0);
   const h1=hsh%13, h2=(hsh>>3)%11, h3=(hsh>>6)%7;
   const below=(dungeon.grid[y+1]&&dungeon.grid[y+1][x]!==undefined)?dungeon.grid[y+1][x]:1;
@@ -23887,6 +24181,7 @@ function drawDungeonTile(t,sx,sy,x,y){
     px(sx+2,sy+TILE-3,12,1,hexMix(SEAL_STONE,'#000000',.45));
     return;
   }
+  if(dgStyleActive() && drawCryptTile(t,sx,sy,x,y,below)) return;      // ⛪ the town's crypt: its walls and floor
   if(t===1){
     /* _legacy wall painter kept above in history; rebuilt with the building
        art language: lit caps, hard silhouettes, architectural torches,
@@ -24517,6 +24812,7 @@ function _ihRampart(x,y,tx,ty){
 function drawIronholdTile(t,x,y,tx,ty){
   switch(t){
     case 6: _ihFlag(x,y,tx,ty); return true;
+    case 16: _ihFlag(x,y,tx,ty); px(x+7,y+4,2,11,IH.OL); px(x+1,y-1,14,8,IH.OL); px(x+2,y,12,6,IH.iron); px(x+2,y,12,1,IH.flagL); px(x+4,y+2,8,1,'#d8b060'); px(x+5,y+4,6,1,'#d8b060'); px(x+1,y-1,2,2,'#b8b4bc'); px(x+13,y-1,2,2,'#b8b4bc'); return true;   // an iron-bound signboard
     case 9: _ihFlag(x,y,tx,ty); return true;                          // under a door (the building draws it)
     case 5: if(_ihIsFoot(tx,ty)){ _ihFlag(x,y,tx,ty); return true; } _ihRampart(x,y,tx,ty); return true;
     case 2: { const B=REGION_BOX.Ironhold; if(tx<B[0]||tx>B[2]||ty<B[1]||ty>B[3]) return false; _ihCinder(x,y,tx,ty); return true; }
@@ -25220,7 +25516,7 @@ function drawThornwoodTile(t,x,y,tx,ty){
       for(const [bx,by,r,c] of [[5,9,5,'#2e5a30'],[11,9,5,'#2e5a30'],[8,6,5,'#3e6e3a'],[7,5,3,'#4a7e44']]){ ctx.fillStyle=c; ctx.beginPath(); ctx.arc(x+bx,y+by,r,0,7); ctx.fill(); }
       for(let i=0;i<6;i++){ const k=(h>>>(i*4))&255; px(x+2+(k%11),y+5+((k>>4)%7),2,2,i%2?'#3a1e3a':'#5a2a4a'); }
       px(x+3,y+3,1,1,'#e8e0e8'); px(x+10,y+6,1,1,'#e8e0e8'); return true; }
-    case 16: _twFloor(x,y,tx,ty); return false;                              // the sign draws itself over the moss
+    case 16: _twFloor(x,y,tx,ty); px(x+7,y+4,2,11,'#3a2a1c'); px(x+1,y-1,14,8,'#2a1e14'); px(x+2,y,12,6,'#8a6038'); px(x+2,y,12,1,'#a87a4a'); px(x+4,y+2,8,1,'#e8d8a8'); px(x+5,y+4,6,1,'#e8d8a8'); px(x+1,y-2,4,2,'#4f8a3c'); px(x+11,y-2,3,2,'#5e9a46'); return true;   // a mossy signboard over the forest floor (_legacy: drew the floor, then the engine's sign on a plain grass square)
   }
   return false;
 }
@@ -25913,6 +26209,7 @@ function drawCrystalpeakTile(t,x,y,tx,ty){
   switch(t){
     case 22: _cpSnow(x,y,tx,ty); return true;
     case 24: _cpSpring(x,y,tx,ty); return true;
+    case 16: _cpSnow(x,y,tx,ty); px(x+7,y+4,2,11,'#3a3040'); px(x+1,y-1,14,8,'#3a3040'); px(x+2,y,12,6,'#8a6a4a'); px(x+2,y-1,12,2,CPK.snow); px(x+4,y+2,8,1,'#f2e6d0'); px(x+5,y+4,6,1,'#f2e6d0'); px(x+12,y+1,2,2,'#9ad8f0'); return true;   // a snow-capped signboard with a crystal
     case 5: case 9: { const W=WORLD; if([[0,1],[0,-1],[1,0],[-1,0]].some(([a,b])=>W[ty+b]&&W[ty+b][tx+a]===22) || t===9){ _cpSnow(x,y,tx,ty); return true; } return false; }
   }
   return false;
@@ -27322,6 +27619,878 @@ function hellgateObjs(objs,camX,camY){
   } });
 }
 
+// ════════════════════════════════════════════════════════════════
+//  🌿 THE OPEN COUNTRY — an art pass over the overworld between the towns (2026-10-01)
+//  Zak: "Can we do a similar upgrade to the general map? So the terrain gets the same
+//  quality upgrade as the villages?" Drawing only: no tile, height or walkability changes.
+//  Every ground keeps its base colour, so the ten towns (which match it at their edges)
+//  stay seamless. What changes:
+//    · grass (0) and flowers (4): broad soft patches of tone across the land instead of a
+//      tile grid, tufts and blades that sway, clover, wildflower drifts in the meadows
+//    · ground meets ground organically: grass, forest floor (7), sand (19), bog (28), ash
+//      (25) and snow (22) bleed into one another along wavy edges, no more stair-steps
+//    · trees (1): round broadleaves and tall pines by region; the deep forest is one
+//      continuous canopy roof, its edge trees standing out on their trunks
+//    · roads (2): wheel ruts, pebbles, a grass verge breaking over the edge
+//    · water (3): shallow near the shore and deep offshore, swells and glints, foam that
+//      pulses along every shore; sand darkens where it is wet
+//    · life in the air: butterflies over the meadows, leaves off the forest edge, the
+//      shadows of birds passing over
+//  The desert's cacti, the ash country's snags and every town keep their own art.
+// ════════════════════════════════════════════════════════════════
+const OWK = { grass:'#5fa860', grassL:'#6cbc6d', grassD:'#549a55', blade:'#3f7a46', bladeL:'#8fd692',
+  forest:'#3f8a4e', forestD:'#357a42', forestL:'#4fa05e', sand:'#e8d6a0', sandD:'#d8c488', sandW:'#cdb47c',
+  bog:'#3a4038', ash:'#6a6258', snow:'#f0f6fa', road:'#bd9a5e', roadD:'#a8864e', roadL:'#c9a86c',
+  deep:'#2f5a86', mid:'#3a6ea5', shallow:'#4a86b8', shoal:'#5a98c4', foam:'#e0f2fa',
+  leafD:'#1d5229', leaf:'#2a6a36', leafM:'#357a40', leafL:'#4a944c', leafH:'#68b062', trunk:'#5b3a1f', trunkL:'#7a5430',
+  pineD:'#1a4a2c', pine:'#245e36', pineL:'#3a7a48' };
+function _owH(x,y,s){ let h=(x*374761393 + y*668265263 + (s||0)*982451653)>>>0; h=(h^(h>>>13))*1274126177>>>0; return (h^(h>>>16))>>>0; }
+function _owN(x,y,s){ // smooth value noise, 0..1 (x,y in tiles; the lattice is one unit)
+  const xi=Math.floor(x), yi=Math.floor(y), fx=x-xi, fy=y-yi, u=fx*fx*(3-2*fx), v=fy*fy*(3-2*fy);
+  const r=(a,b)=>(_owH(a,b,s)&1023)/1023;
+  return (r(xi,yi)*(1-u)+r(xi+1,yi)*u)*(1-v) + (r(xi,yi+1)*(1-u)+r(xi+1,yi+1)*u)*v; }
+const _owT = ()=>performance.now()/1000;
+// per-tile caches for the noise-heavy, unchanging parts (each keyed by the 3×3 tiles round it, so a
+// changed map — a pier laid, a wall raised — redraws correctly)
+const _owCache=new Map();
+function _owSig(tx,ty){ let s=0; for(let b=-1;b<=1;b++) for(let a=-1;a<=1;a++){ const q=WORLD[ty+b]&&WORLD[ty+b][tx+a]; s=(s*31+((q===undefined?255:q)+1))|0; } return s; }
+function _owCached(kind,tx,ty,fn){ const k=kind*1e6+ty*1000+tx, sig=_owSig(tx,ty), e=_owCache.get(k); if(e&&e.s===sig) return e.v; const v=fn(); _owCache.set(k,{s:sig,v}); return v; }
+// how far from any town box (0 at the box edge, 1 from four tiles out) — the broad tone fades to the plain base there
+let _owFade=null;
+function _owFadeAt(tx,ty){
+  if(!_owFade){ _owFade=new Float32Array(WORLD_W*WORLD_H).fill(1);
+    for(const n in REGION_BOX){ if(n==='The Southern Isles'||n==='The Homestead') continue; const [a,b,c,d]=REGION_BOX[n];
+      for(let y=Math.max(0,b-6);y<=Math.min(WORLD_H-1,d+6);y++) for(let x=Math.max(0,a-6);x<=Math.min(WORLD_W-1,c+6);x++){
+        const dx=Math.max(a-1-x,0,x-c-1), dy=Math.max(b-1-y,0,y-d-1), dd=Math.max(dx,dy), f=Math.min(1,Math.max(0,(dd-1)/4));
+        if(f<_owFade[y*WORLD_W+x]) _owFade[y*WORLD_W+x]=f; } } }
+  return (tx<0||ty<0||tx>=WORLD_W||ty>=WORLD_H)?1:_owFade[ty*WORLD_W+tx]; }
+// the ground families, for blending one into another
+const OW_GROUND={0:'g',4:'g',1:'g',7:'f',19:'s',28:'b',30:'b',25:'a',22:'w'};
+const OW_BASE={g:OWK.grass,f:OWK.forest,s:OWK.sand,b:OWK.bog,a:OWK.ash,w:OWK.snow};
+const _owDesert=(tx,ty)=>tx>=78&&tx<=107&&ty>=56&&ty<=82, _owAshland=(tx,ty)=>tx>=136&&tx<=180&&ty>=134&&ty<=167;
+function _owFam(tx,ty){ const v=WORLD[ty]&&WORLD[ty][tx]; if(v===undefined) return null; if(v===1){ const W=WORLD;   // a tree stands on whichever ground is round it
+    for(const [a,b] of [[0,1],[0,-1],[1,0],[-1,0]]){ const q=W[ty+b]&&W[ty+b][tx+a]; if(q===7) return 'f'; } return 'g'; } return OW_GROUND[v]||null; }
+// the ground blend: each tile is painted in 4px cells, and each cell takes the ground family
+// that wins a smooth (bilinear) vote of the tile centres round it, nudged by noise — so where
+// two grounds meet, the border wanders across the tiles instead of following the grid
+const OW_PAINT={g:OWK.grass,f:OWK.forest,s:OWK.sand,b:OWK.bog,a:OWK.ash,w:OWK.snow};
+function _owBlend(x,y,tx,ty,mine){
+  const cells=_owCached(2,tx,ty,()=>_owBlendCells(tx,ty,mine)); if(!cells) return;
+  for(let i=0;i<16;i++){ const f=cells[i]; if(f) _p(x+(i&3)*4,y+(i>>2)*4,4,4,OW_PAINT[f]); } }
+function _owBlendCells(tx,ty,mine){
+  let mixed=false; for(let b=-1;b<=1&&!mixed;b++) for(let a=-1;a<=1;a++){ const f=_owFam(tx+a,ty+b); if(f&&f!==mine){ mixed=true; break; } }
+  if(!mixed) return null; const out=new Array(16).fill(null);
+  for(let cy=0;cy<4;cy++) for(let cx=0;cx<4;cx++){
+    const u=tx+(cx+0.5)/4-0.5, v=ty+(cy+0.5)/4-0.5, i0=Math.floor(u), j0=Math.floor(v), fu=u-i0, fv=v-j0;
+    const w={}; const add=(i,j,k)=>{ const f=_owFam(i,j)||mine; w[f]=(w[f]||0)+k; };
+    add(i0,j0,(1-fu)*(1-fv)); add(i0+1,j0,fu*(1-fv)); add(i0,j0+1,(1-fu)*fv); add(i0+1,j0+1,fu*fv);
+    const nz=(_owN(u*0.9,v*0.9,31)-0.5)*1.1+(_owN(u*2.6,v*2.6,32)-0.5)*0.45;
+    let best=mine, bw=(w[mine]||0)+nz; for(const f in w){ if(f===mine) continue; const ww=w[f]-nz; if(ww>bw){ bw=ww; best=f; } }
+    if(best!==mine) out[cy*4+cx]=best; }
+  return out; }
+const _owBleed=_owBlend;
+// ── grass, flowers ──
+function _owGrass(x,y,tx,ty,flowers){
+  const fade=_owFadeAt(tx,ty), h=_owH(tx,ty,1);
+  _p(x,y,TILE,TILE,OWK.grass);
+  // the broad tone: soft lighter and darker drifts across the fields (sub-tile cells, so no grid shows)
+  if(fade>0){ const tone=_owCached(1,tx,ty,()=>{ const a=new Float32Array(16); for(let cy=0;cy<4;cy++) for(let cx=0;cx<4;cx++){ const n=_owN((tx*4+cx)/14,(ty*4+cy)/14,2)*0.75+_owN((tx*4+cx)/6,(ty*4+cy)/6,3)*0.25;
+      a[cy*4+cx]= n>0.62?Math.min(0.35,(n-0.62)*1.6) : n<0.36?-Math.min(0.3,(0.36-n)*1.6) : 0; } return a; });
+    for(let i=0;i<16;i++){ const v=tone[i]; if(!v) continue; C.globalAlpha=Math.abs(v)*fade; _p(x+(i&3)*4,y+(i>>2)*4,4,4,v>0?'#6cb868':'#549c55'); } }
+  C.globalAlpha=1;
+  _owBleed(x,y,tx,ty,'g');
+  // tufts: little fans of blades, a few of them stirring in the wind
+  const n=1+(h%3), wind=0;
+  for(let i=0;i<n;i++){ const k=_owH(tx,ty,10+i), bx=x+1+(k%13), by=y+4+((k>>>4)%10), sw=(k>>>9)%3===0?Math.round(wind):0;
+    const tall=(k>>>12)%3; _p(bx,by+1-(tall>1?1:0),1,2+(tall>1?1:0),OWK.blade); _p(bx+2,by-tall,1,3+tall,OWK.blade); if(tall) _p(bx+4,by,1,3,OWK.blade);
+    _p(bx+sw,by-(tall>1?1:0),1,1,OWK.bladeL); _p(bx+2+sw,by-1-tall,1,1,OWK.bladeL); if(tall) _p(bx+4+sw,by-1,1,1,OWK.bladeL); }
+  if(h%4===0) _p(x+2+((h>>>5)%11),y+2+((h>>>9)%11),2,2,OWK.grassL);
+  if(h%11===0){ const cx=x+3+((h>>>6)%9), cy=y+3+((h>>>10)%9); _p(cx,cy,1,1,'#7ccc78'); _p(cx+1,cy,1,1,'#7ccc78'); _p(cx,cy+1,1,1,'#7ccc78'); }   // clover
+  if(h%23===0) _p(x+11-((h>>>4)%5),y+12,2,1,'#9a9484');                                                               // a pebble
+  // wildflower drifts, where the meadow noise says so (and always on the flower tiles)
+  const meadow=_owN(tx/6,ty/6,4);
+  if(flowers||(meadow>0.7 && h%3!==0)){ const m=flowers?4:1+Math.round((meadow-0.7)*7); const pal=['#ffffff','#f4e06a','#c8a0f0','#f09ac0','#ffd27a'];
+    for(let i=0;i<m;i++){ const k=_owH(tx,ty,30+i), fx=x+1+(k%14), fy=y+2+((k>>>4)%12), c=pal[(k>>>8)%5], bob=(k>>>12)%4===0&&wind>0.6?1:0;
+      _p(fx,fy+1,1,2,'#3a7a42'); _p(fx-1+bob,fy,3,1,c); _p(fx+bob,fy-1,1,3,c); _p(fx+bob,fy,1,1,flowers&&i%2?'#e8a020':'#fff6c0'); } }
+}
+// ── the forest floor ──
+function _owForest(x,y,tx,ty){ const h=_owH(tx,ty,5);
+  _p(x,y,TILE,TILE,OWK.forest);
+  for(let cy=0;cy<4;cy++) for(let cx=0;cx<4;cx++){ const n=_owN((tx*4+cx)/5,(ty*4+cy)/5,6); if(n<0.4){ C.globalAlpha=(0.4-n)*1.6; _p(x+cx*4,y+cy*4,4,4,'#30703c'); } } C.globalAlpha=1;
+  _owBleed(x,y,tx,ty,'f');
+  for(let i=0;i<3;i++){ const k=_owH(tx,ty,40+i); _p(x+(k%14),y+((k>>>4)%14),2,1,['#7a6a3a','#8a5a2a','#5a7a3a'][i]); }          // leaf litter
+  if(h%3===0){ const fx=x+3+((h>>>4)%9), fy=y+10, sw=0;                             // a fern
+    for(let i=1;i<3;i++){ _p(fx-i+sw,fy-i,1,1,'#357a42'); _p(fx+i+sw,fy-i,1,1,'#357a42'); } _p(fx+sw,fy-3,1,4,'#46925a'); }
+  if(h%17===0){ const mx=x+4+((h>>>7)%8), my=y+6+((h>>>11)%6); _p(mx,my+2,1,2,'#e8e0d0'); _p(mx-1,my,3,2,'#c84a3a'); _p(mx,my,1,1,'#ffffff'); }   // a toadstool
+}
+// ── trees: broadleaves and pines; the deep wood is one canopy ──
+// The ground and the shade under a tree are drawn with the tiles; the crowns are drawn in the
+// depth-sorted sprite layer (overworldObjs), so they overlap one another without seams and the
+// knight passes behind a tree when he walks north of it.
+const _owIsTree=(a,b)=>{ const q=WORLD[b]&&WORLD[b][a]; return q===1; };
+function _owTreeKind(tx,ty){ return (_owN(tx/11,ty/11,8)>0.58 || (ty<40 && _owN(tx/7,ty/7,9)>0.45)) ? 'pine' : 'leaf'; }
+function _owTreeN(tx,ty){ return (_owIsTree(tx,ty-1)?1:0)+(_owIsTree(tx,ty+1)?1:0)+(_owIsTree(tx-1,ty)?1:0)+(_owIsTree(tx+1,ty)?1:0); }
+function _owTree(x,y,tx,ty){
+  const ground=_owFam(tx,ty)==='f'?'f':'g'; if(ground==='f') _owForest(x,y,tx,ty); else { _p(x,y,TILE,TILE,OWK.grass); _owBleed(x,y,tx,ty,'g'); }
+  const nT=_owTreeN(tx,ty), pine=_owTreeKind(tx,ty)==='pine';
+  if(nT===4){ _p(x,y,TILE,TILE,pine?OWK.pineD:OWK.leafD); return; }                           // under the roof of the deep wood: deep shade
+  C.fillStyle='rgba(12,30,16,0.38)'; C.beginPath(); C.ellipse(x+8,y+13,8+(nT>=2?2:0),3,0,0,7); C.fill();
+}
+function _owCrown(X,Y,tx,ty){ // X,Y: the tile's top-left on screen
+  const h=_owH(tx,ty,7), nT=_owTreeN(tx,ty), pine=_owTreeKind(tx,ty)==='pine', sway=0;
+  const blob=(cx,cy,r,c)=>{ C.fillStyle=c; C.beginPath(); C.arc(X+cx,Y+cy,r,0,7); C.fill(); };
+  if(nT===4){ // the roof: crowns on a jittered lattice, two to a tile, each a dark rim, a body and a lit top
+    const cols=pine?[OWK.pineD,OWK.pine,OWK.pineL]:[OWK.leafD,OWK.leaf,OWK.leafM];
+    for(let i=0;i<2;i++){ const k=_owH(tx,ty,50+i), cx=4+(k%9)+(i?4:0), cy=4+((k>>>4)%9), r=6+((k>>>8)%3), s=sway*0.5;
+      blob(cx+s,cy+1,r+1,cols[0]); blob(cx+s,cy,r,cols[1]); blob(cx-1.5+s,cy-1.5,r-2.5,cols[2]); }
+    const k=_owH(tx,ty,58); if(k%3===0) _p(X+3+(k>>>4)%8,Y+2+(k>>>8)%6,2,1,pine?'#4a8a58':OWK.leafH);
+    return; }
+  if(pine){ const s=Math.round(sway*0.8), tall=nT>=2?3:0; _p(X+7,Y+9,2,6,OWK.trunk); _p(X+7,Y+9,1,6,OWK.trunkL);
+    for(let r=0;r<16+tall;r++){ const w=Math.round(2+r*0.62+((r%5)<2?-1:1)), yy=Y-6-tall+r, sx=r<6?s:0;
+      _p(X+8-(w>>1)+sx,yy,w,1,r%5===4?OWK.pineD:OWK.pine); _p(X+8-(w>>1)+sx,yy,1,1,OWK.pineL); }
+    _p(X+7+s,Y-7-tall,2,2,OWK.pine); return; }
+  _p(X+7,Y+7,3,8,OWK.trunk); _p(X+7,Y+7,1,8,OWK.trunkL); _p(X+6,Y+14,5,1,OWK.trunk);
+  const s=sway, full=nT>=2?1.5:0, big=((h%3)?6.5:7.5)+full, cx=(cx0,cy0,r,c)=>blob(cx0+s,cy0,r,c);
+  cx(8.5,3,big+0.5,OWK.leafD); cx(4,5,4.5+full,OWK.leafD); cx(13,5,4.5+full,OWK.leafD);
+  cx(8,2,big-0.5,OWK.leaf); cx(5,4,3.6+full*0.6,OWK.leaf); cx(12,4,3.6+full*0.6,OWK.leaf);
+  cx(6.5,0,3.4,OWK.leafM); cx(10,1,3,OWK.leafM); cx(6,-1.5,1.8,OWK.leafL);
+  if(h%13===0 && _owN(tx/9,ty/9,33)>0.6){ for(let i=0;i<3;i++) _p(X+4+((h>>>(4+i*3))%8)+Math.round(s),Y+((h>>>(8+i*2))%6),2,2,'#d8443a'); }   // now and then an apple tree
+}
+let _owOwn=null;
+function _owOwnedC(tx,ty){ if(!_owOwn){ _owOwn=new Uint8Array(WORLD_W*WORLD_H); for(let y=0;y<WORLD_H;y++) for(let x=0;x<WORLD_W;x++) if(WORLD[y][x]===1 && _owOwned(x,y)) _owOwn[y*WORLD_W+x]=1; } return _owOwn[ty*WORLD_W+tx]===1; }
+// is this tile drawn by a town or an isle (which keep their own trees)?
+function _owOwned(tx,ty){
+  return hvAt(tx,ty)||ihAt(tx,ty)||smAt(tx,ty)||twAt(tx,ty)||sgAt(tx,ty)||shAt(tx,ty)||hgAt(tx,ty)||afAt(tx,ty)||cpAt(tx,ty)||dhAt(tx,ty)
+      ||mistralIsleAt(tx,ty)||taborIsleAt(tx,ty)||sunfallIsleAt(tx,ty); }
+// ── roads ──
+function _owRoad(x,y,tx,ty){
+  const W=WORLD, isR=(a,b)=>{ const q=W[b]&&W[b][a]; return q===2||q===6||q===8||q===10||q===11||q===12||q===27; };
+  const rN=isR(tx,ty-1), rS=isR(tx,ty+1), rW=isR(tx-1,ty), rE=isR(tx+1,ty), h=_owH(tx,ty,13);
+  _p(x,y,TILE,TILE,OWK.road);
+  for(let i=0;i<5;i++){ const k=_owH(tx,ty,60+i); _p(x+(k%15),y+((k>>>4)%15),1+((k>>>8)%2),1,(k>>>10)%2?OWK.roadD:OWK.roadL); }   // grit
+  const vert=(rN||rS)&&!(rW&&rE&&!(rN&&rS));
+  // two wheel ruts along the way of travel (across both lanes of a wide road the pattern simply repeats)
+  if(vert && !(rW&&rE)) { _p(x+4,y,2,TILE,OWK.roadD); _p(x+11,y,2,TILE,OWK.roadD); if(h%5===0) _p(x+7,y+3,2,8,'#86a858'); }
+  else if(rW||rE) { if(!(rN&&rS)){ _p(x,y+4,TILE,2,OWK.roadD); _p(x,y+11,TILE,2,OWK.roadD); if(h%5===0) _p(x+3,y+7,8,2,'#86a858'); } }
+  if(h%7===0){ _p(x+3+((h>>>5)%9),y+4+((h>>>9)%8),3,2,'#9a9484'); _p(x+3+((h>>>5)%9),y+4+((h>>>9)%8),3,1,'#b4ae9c'); }   // a stone
+  // a grass verge breaking over the edge, where the road meets the fields
+  const verge=(d)=>{ for(let i=0;i<TILE;i+=2){ const gx=(d==='N'||d==='S')?tx*TILE+i:(d==='W'?tx*TILE:tx*TILE+TILE), gy=(d==='W'||d==='E')?ty*TILE+i:(d==='N'?ty*TILE:ty*TILE+TILE);
+      const dep=Math.round(_owN(gx/6,gy/6,14)*4); if(dep<=0) continue;
+      const c=_owN(gx/3,gy/3,15)>0.5?OWK.grass:OWK.grassD;
+      if(d==='N') _p(x+i,y,2,dep,c); else if(d==='S') _p(x+i,y+TILE-dep,2,dep,c); else if(d==='W') _p(x,y+i,dep,2,c); else _p(x+TILE-dep,y+i,dep,2,c);
+      if(dep>=3 && (i%4===0)){ if(d==='N') _p(x+i,y+dep,1,1,OWK.blade); else if(d==='S') _p(x+i,y+TILE-dep-1,1,1,OWK.blade); else if(d==='W') _p(x+dep,y+i,1,1,OWK.blade); else _p(x+TILE-dep-1,y+i,1,1,OWK.blade); } } };
+  const g=(a,b)=>{ const f=_owFam(tx+a,ty+b); return f==='g'||f==='f'; };
+  if(!rN&&g(0,-1)) verge('N'); if(!rS&&g(0,1)) verge('S'); if(!rW&&g(-1,0)) verge('W'); if(!rE&&g(1,0)) verge('E');
+}
+// ── water: depth, swell, glints, foam ──
+let _owDepth=null;
+const _owWet=(v)=>v===3||v===20||v===21||v===29||v===36||v===37||v===38;
+function _owDepthAt(tx,ty){
+  if(!_owDepth) _owDepth=new Int8Array(WORLD_W*WORLD_H).fill(-1);
+  const i=ty*WORLD_W+tx; if(_owDepth[i]>=0) return _owDepth[i];
+  let d=4; for(let r=1;r<=3&&d===4;r++) for(let b=-r;b<=r&&d===4;b++) for(let a=-r;a<=r;a++){ if(Math.max(Math.abs(a),Math.abs(b))!==r) continue; const q=WORLD[ty+b]&&WORLD[ty+b][tx+a]; if(q!==undefined&&!_owWet(q)){ d=r; break; } }
+  _owDepth[i]=d; return d; }
+function _owWaterBase(x,y,tx,ty){
+  const d=_owDepthAt(tx,ty);
+  const D=(i,j)=>{ const q=WORLD[j]&&WORLD[j][i]; return (q===undefined||_owWet(q))?_owDepthAt(Math.max(0,Math.min(WORLD_W-1,i)),Math.max(0,Math.min(WORLD_H-1,j))):0; };
+  const shade=['#4a7eae','#4178aa','#3a6ea5','#3463a0','#2f5a86'];
+  if(d>=4 && D(tx-1,ty)>=4 && D(tx+1,ty)>=4 && D(tx,ty-1)>=4 && D(tx,ty+1)>=4){ _p(x,y,TILE,TILE,shade[4]); return; }
+  for(let cy=0;cy<4;cy++) for(let cx=0;cx<4;cx++){ const u=tx+(cx+0.5)/4-0.5, v=ty+(cy+0.5)/4-0.5, i0=Math.floor(u), j0=Math.floor(v), fu=u-i0, fv=v-j0;
+    const dd=D(i0,j0)*(1-fu)*(1-fv)+D(i0+1,j0)*fu*(1-fv)+D(i0,j0+1)*(1-fu)*fv+D(i0+1,j0+1)*fu*fv + (_owN(u*1.3,v*1.3,21)-0.5)*0.9;
+    _p(x+cx*4,y+cy*4,4,4,shade[Math.max(0,Math.min(4,Math.round(dd)))]); }
+}
+function _owFoamShape(x,y,tx,ty){ // the foam line along a shore (drawn into its own layer, then pulsed)
+  const W=WORLD, land=(a,b)=>{ const q=W[b]&&W[b][a]; return q!==undefined&&!_owWet(q); };
+  const foam=(d2)=>{ for(let i=0;i<TILE;i+=2){ const gx=(d2==='N'||d2==='S')?tx*TILE+i:(d2==='W'?tx*TILE:tx*TILE+TILE), gy=(d2==='W'||d2==='E')?ty*TILE+i:(d2==='N'?ty*TILE:ty*TILE+TILE);
+      const dep=1+Math.round(_owN(gx/5,gy/5,23)*3);
+      C.globalAlpha=0.9; if(d2==='N') _p(x+i,y,2,dep,OWK.foam); else if(d2==='S') _p(x+i,y+TILE-dep,2,dep,OWK.foam); else if(d2==='W') _p(x,y+i,dep,2,OWK.foam); else _p(x+TILE-dep,y+i,dep,2,OWK.foam);
+      C.globalAlpha=0.45; if(d2==='N') _p(x+i,y+dep+1,2,1,OWK.foam); else if(d2==='S') _p(x+i,y+TILE-dep-2,2,1,OWK.foam); else if(d2==='W') _p(x+dep+1,y+i,1,2,OWK.foam); else _p(x+TILE-dep-2,y+i,1,2,OWK.foam); }
+    C.globalAlpha=1; };
+  let any=false; if(land(tx,ty-1)){ foam('N'); any=true; } if(land(tx,ty+1)){ foam('S'); any=true; } if(land(tx-1,ty)){ foam('W'); any=true; } if(land(tx+1,ty)){ foam('E'); any=true; }
+  return any;
+}
+function _owWaterLive(x,y,tx,ty){ // the swell and the glints, drawn every frame
+  const t=_owT(), d=_owDepthAt(tx,ty), h=_owH(tx,ty,20);
+  for(let r=0;r<2;r++){ const ph=t*0.6+tx*0.45+ty*0.9+r*2.1+((h>>>(r*4))%40)/10; const yy=y+3+r*8+Math.round(Math.sin(ph)*1.5);
+    const xx=x+((Math.floor(ph*3)+r*5+h)%10); px(xx,yy,6,1,d>2?'#4a7eb5':'#5a92c4'); }
+  if(Math.sin(t*2.2+h%97)>0.93){ const gx=x+2+(h%12), gy=y+2+((h>>>5)%12); px(gx,gy,2,1,'#e8f6ff'); px(gx+1,gy-1,1,3,'#cfeaff'); }
+}
+// ── sand, bog, ash, snow ──
+function _owSand(x,y,tx,ty){ const h=_owH(tx,ty,24);
+  _p(x,y,TILE,TILE,OWK.sand); _owBleed(x,y,tx,ty,'s');
+  for(let r=0;r<3;r++){ const yy=y+3+r*5+((h>>>(r*3))%2); for(let i=0;i<TILE;i+=1){ if(Math.sin((tx*TILE+i)*0.5+r+ty)>0.5) _p(x+i,yy,1,1,OWK.sandD); } }   // wind ripples
+  if(h%9===0){ _p(x+4+(h>>>5)%8,y+6+(h>>>9)%6,2,2,'#f6eee0'); _p(x+5+(h>>>5)%8,y+6+(h>>>9)%6,1,1,'#e8a888'); }           // a shell
+  const W=WORLD, wet=(a,b)=>_owWet(W[b]&&W[b][a]);
+  if(wet(tx,ty+1)) _p(x,y+TILE-4,TILE,4,OWK.sandW); if(wet(tx,ty-1)) _p(x,y,TILE,3,OWK.sandW); if(wet(tx-1,ty)) _p(x,y,3,TILE,OWK.sandW); if(wet(tx+1,ty)) _p(x+TILE-3,y,3,TILE,OWK.sandW);
+}
+function _owBog(x,y,tx,ty){ const h=_owH(tx,ty,25);
+  _p(x,y,TILE,TILE,OWK.bog); _owBleed(x,y,tx,ty,'b');
+  for(let i=0;i<3;i++){ const k=_owH(tx,ty,70+i); _p(x+(k%13),y+((k>>>4)%13),3,2,i%2?'#454d42':'#313630'); }
+  if(h%4===0){ const px0=x+2+(h>>>5)%8, py0=y+4+(h>>>9)%8; C.fillStyle='#24302e'; C.beginPath(); C.ellipse(px0+3,py0+2,4,2,0,0,7); C.fill(); }   // a black pool
+  if(h%3===1){ const rx=x+3+(h>>>6)%10; for(let i=0;i<3;i++) _p(rx+i*2,y+8-(i%2)*2,1,6,'#5a6a40'); _p(rx+2,y+5,1,2,'#6a4a2a'); }   // reeds
+}
+function _owAsh(x,y,tx,ty){ const h=_owH(tx,ty,26);
+  _p(x,y,TILE,TILE,OWK.ash); _owBleed(x,y,tx,ty,'a');
+  for(let i=0;i<3;i++){ const k=_owH(tx,ty,80+i); _p(x+(k%14),y+((k>>>4)%14),2,2,i%2?'#766e63':'#5c554c'); }
+  if(h%5===0){ const cx=x+2+(h>>>4)%10, cy=y+3+(h>>>8)%9; _p(cx,cy,5,1,'#4a443c'); _p(cx+4,cy,1,3,'#4a443c'); }               // a crack
+}
+function _owSnow(x,y,tx,ty){ const h=_owH(tx,ty,27);
+  _p(x,y,TILE,TILE,OWK.snow); _owBleed(x,y,tx,ty,'w');
+  for(let cy=0;cy<4;cy++) for(let cx=0;cx<4;cx++){ if(_owN((tx*4+cx)/4,(ty*4+cy)/4,28)<0.35) _p(x+cx*4,y+cy*4,4,4,'#e2ecf4'); }   // drift shadows
+}
+// ── the tile cache: each tile's still layer is painted once into a small canvas and reused ──
+let C=ctx;                                                    // where the painters draw: the screen, or a cache canvas
+function _p(x,y,w,h,c){ C.fillStyle=c; C.fillRect(x,y,w,h); }
+const _owTiles=new Map();
+function _owSprite(kind,tx,ty,w,h,ox,oy,paint){ // a cached canvas for this tile, painted by paint(x,y) with its origin at (ox,oy)
+  const k=(ty*WORLD_W+tx)*8+kind, sig=_owSig(tx,ty), e=_owTiles.get(k);
+  if(e && e.s===sig) return e.c;
+  const c=(e&&e.c&&e.c.width===w&&e.c.height===h)?e.c:document.createElement('canvas'); c.width=w; c.height=h;
+  const g=c.getContext('2d'); g.clearRect(0,0,w,h); const was=C; C=g; let keep=true;
+  try{ keep=paint(ox,oy)!==false; } finally{ C=was; }
+  const v=keep?c:null; _owTiles.delete(k); _owTiles.set(k,{s:sig,c:v});
+  if(_owTiles.size>9000){ let n=0; for(const kk of _owTiles.keys()){ _owTiles.delete(kk); if(++n>=2000) break; } }
+  return v; }
+const OW_PAINTERS={ 0:(x,y,tx,ty)=>_owGrass(x,y,tx,ty,false), 4:(x,y,tx,ty)=>_owGrass(x,y,tx,ty,true), 7:_owForest, 1:_owTree, 2:_owRoad, 3:_owWaterBase, 19:_owSand, 28:_owBog, 25:_owAsh, 22:_owSnow };
+function drawOverworldTile(t,x,y,tx,ty){
+  const paint=OW_PAINTERS[t]; if(!paint) return false;
+  if(t===1 && (_owDesert(tx,ty)||_owAshland(tx,ty))) return false;
+  const c=_owSprite(t===1?1:0,tx,ty,TILE,TILE,0,0,(ox,oy)=>{ paint(ox,oy,tx,ty); }); if(c) ctx.drawImage(c,x,y);
+  const now=_owT(), h=_owH(tx,ty,99);
+  if(t===3){ _owWaterLive(x,y,tx,ty);
+    if(typeof uwMarkerAt==='function' && uwMarkerAt(tx,ty)) uwDrawDiveMarker(x,y);   // 🌊 a dive spot, as before
+    const f=_owDepthAt(tx,ty)===1?_owSprite(2,tx,ty,TILE,TILE,0,0,(ox,oy)=>_owFoamShape(ox,oy,tx,ty)):null; if(f){ ctx.globalAlpha=0.55+0.45*Math.sin(now*1.4+tx*0.7+ty*0.5); ctx.drawImage(f,x,y); ctx.globalAlpha=1; } }
+  else if(t===25 && h%7===0){ ctx.globalAlpha=0.5+0.5*Math.sin(now*3+h); px(x+4+(h>>>6)%8,y+5+(h>>>10)%7,1,1,'#ff7a30'); ctx.globalAlpha=1; }   // a cinder, still alive
+  else if(t===22 && Math.sin(now*2.5+h)>0.9) px(x+2+(h%12),y+2+((h>>>4)%12),1,1,'#ffffff');                                         // a glitter of frost
+  else if(t===28 && h%4===0 && Math.sin(now*1.5+h)>0.7) px(x+5+(h>>>5)%8,y+6+(h>>>9)%6,1,1,'#5a7070');                               // a bubble in the bog
+  return true;
+}
+// ── life in the air over the open country ──
+function overworldObjs(objs,camX,camY){
+  { const x0=Math.floor(camX/TILE)-1, y0=Math.floor(camY/TILE)-1, x1=Math.ceil((camX+VW)/TILE)+1, y1=Math.ceil((camY+VH)/TILE)+2;
+    for(let ty=Math.max(0,y0);ty<=Math.min(WORLD_H-1,y1);ty++) for(let tx=Math.max(0,x0);tx<=Math.min(WORLD_W-1,x1);tx++){
+      if(WORLD[ty][tx]!==1 || _owDesert(tx,ty) || _owAshland(tx,ty) || _owOwnedC(tx,ty)) continue;
+      objs.push({ sy:ty+1, draw:()=>{ const c=_owSprite(3,tx,ty,44,44,14,18,(ox,oy)=>_owCrown(ox,oy,tx,ty)); if(c) ctx.drawImage(c,tx*TILE-camX-14,ty*TILE-camY-18); } }); } }
+  objs.push({ sy:1e6, draw:()=>{ const t=_owT(), x0=Math.floor(camX/TILE), y0=Math.floor(camY/TILE), w=Math.ceil(VW/TILE)+1, h=Math.ceil(VH/TILE)+1;
+    const town=(x,y)=>_owFadeAt(x,y)<1;
+    // butterflies: one to a patch of meadow, wandering about its home
+    for(let gy=Math.floor(y0/6)*6; gy<y0+h; gy+=6) for(let gx=Math.floor(x0/6)*6; gx<x0+w; gx+=6){ const k=_owH(gx,gy,90); if(k%3) continue;
+      const hx=gx+(k%6), hy=gy+((k>>>4)%6), v=WORLD[hy]&&WORLD[hy][hx]; if(v!==0&&v!==4) continue; if(town(hx,hy)) continue;
+      const a=t*0.7+(k%100), X=(hx+0.5)*TILE+Math.cos(a)*22+Math.sin(a*2.3)*8-camX, Y=(hy+0.5)*TILE+Math.sin(a*1.3)*14-camY-6, fl=Math.sin(t*14+k)>0;
+      const c=['#ffffff','#f4d040','#f08ac0','#a8c8f8'][(k>>>8)%4]; px(Math.round(X)-2,Math.round(Y)-(fl?1:0),2,fl?2:1,c); px(Math.round(X)+1,Math.round(Y)-(fl?1:0),2,fl?2:1,c); px(Math.round(X),Math.round(Y),1,2,'#3a2a1a'); }
+    // leaves blown off the forest edge
+    for(let gy=Math.floor(y0/5)*5; gy<y0+h; gy+=5) for(let gx=Math.floor(x0/5)*5; gx<x0+w; gx+=5){ const k=_owH(gx,gy,91); if(k%2) continue;
+      const hx=gx+(k%5), hy=gy+((k>>>4)%5); if(!(WORLD[hy]&&WORLD[hy][hx]===1)) continue; if(town(hx,hy)||_owDesert(hx,hy)||_owAshland(hx,hy)) continue;
+      const a=((t*0.18+(k%100)/100)%1), X=(hx+0.5)*TILE+a*40+Math.sin(t*2+k)*6-camX, Y=hy*TILE+a*44-camY; ctx.globalAlpha=1-a; px(Math.round(X),Math.round(Y),2,1,(k>>>6)%2?'#c8a040':'#7aa848'); ctx.globalAlpha=1; }
+    // the shadows of birds passing over
+    for(let i=0;i<2;i++){ const p=((t*0.03+i*0.5)%1), X=-60+p*(VW+120), Y=VH*(0.25+0.45*((_owH(Math.floor(t*0.03+i*0.5),i,92)%100)/100)), fl=Math.sin(t*6+i)>0;
+      ctx.fillStyle='rgba(10,20,10,0.16)'; ctx.beginPath(); ctx.moveTo(X-7,Y+(fl?-2:1)); ctx.lineTo(X,Y); ctx.lineTo(X+7,Y+(fl?-2:1)); ctx.lineTo(X,Y+2); ctx.closePath(); ctx.fill(); }
+  } });
+}
+
+// ════════════════════════════════════════════════════════════════
+//  ⛪👑 THE SANCTUARIES AND THE THRONE HALL (2026-10-01)
+//  Zak: "Let's do the cleansed chapel interiors and throne room now!"
+//  SANCTUARIES — a cleansed chapel was the same grey room in all ten towns. Now each is its
+//  own town's church made glad: its own walls, floor, pews and cloth, tall stained-glass
+//  windows behind the altar and down the walls throwing coloured light across the floor, a
+//  runner up the aisle to a dressed altar with candles, the pulpit carved with the town's
+//  sign. The room, its seats and its people are exactly where they were.
+//  THE THRONE HALL (the endgame scene and the walkable Stormgate Keep) — a marble floor laid
+//  in gold-inlaid diamonds, gilded pillars, tall windows pouring light across the hall, a
+//  rose window and a canopy of state over the throne, chandeliers. The crowd, guards,
+//  heralds, braziers and confetti stand exactly where they stood.
+// ════════════════════════════════════════════════════════════════
+function _hlH(x,y,s){ let h=(x*374761393 + y*668265263 + (s||0)*982451653)>>>0; h=(h^(h>>>13))*1274126177>>>0; return (h^(h>>>16))>>>0; }
+// each town's sanctuary: wall, wall light, wall dark, floor A/B, pew wood, cloth, cloth light, glass colours, the sign on the pulpit
+const SANCT = [
+  { wall:'#c8a878', wallL:'#e4c898', wallD:'#8a6e4a', fA:'#d8c4a0', fB:'#ccb690', pew:'#7a4e2a', pewL:'#9a6a3a', cloth:'#3a7a3a', clothL:'#5a9a4a', glass:['#e8c040','#4a9a4a','#c84a3a','#5a8ad8'], sign:'wheat' },   // Hearthvale
+  { wall:'#9a9aa2', wallL:'#bcbcc4', wallD:'#62626a', fA:'#b4b0aa', fB:'#a8a49e', pew:'#4a3424', pewL:'#6a4a32', cloth:'#9a2a2a', clothL:'#c84a3a', glass:['#c83a2a','#e8a040','#8a8a9a','#e8d070'], sign:'anvil' },   // Ironhold
+  { wall:'#e8ecec', wallL:'#ffffff', wallD:'#aab4b8', fA:'#d8d0c0', fB:'#ccc4b2', pew:'#9a8a6e', pewL:'#bcae90', cloth:'#2a5a9a', clothL:'#4a7ac8', glass:['#3a7ac8','#5ab8c8','#e8e0c0','#2a4a8a'], sign:'anchor' },  // Saltmere
+  { wall:'#7a5a3a', wallL:'#9a7a52', wallD:'#4a3420', fA:'#8a7a5a', fB:'#7e6e50', pew:'#5a3a22', pewL:'#7a5432', cloth:'#3a6a3a', clothL:'#e8e0e0', glass:['#4a9a4a','#e84a6a','#e8c040','#8ac85a'], sign:'rose' },    // Thornwood
+  { wall:'#f0e6d0', wallL:'#fffaf0', wallD:'#c0a880', fA:'#e0c890', fB:'#d4ba80', pew:'#8a5a32', pewL:'#aa7444', cloth:'#2a2a7a', clothL:'#e8b030', glass:['#2a3a9a','#e8b030','#c83a3a','#3ab8a8'], sign:'star' },    // Dusthaven
+  { wall:'#d8e4ec', wallL:'#f4faff', wallD:'#9ab0c0', fA:'#e4ecf2', fB:'#d6e0e8', pew:'#6a5a4a', pewL:'#8a7660', cloth:'#5a8ac8', clothL:'#eef8ff', glass:['#8ad8f8','#ffffff','#a8a0f0','#5ac8e8'], sign:'crystal' }, // Crystalpeak
+  { wall:'#5a5250', wallL:'#7a706c', wallD:'#3a3432', fA:'#8a7a5a', fB:'#7e6e50', pew:'#4a3020', pewL:'#6a4630', cloth:'#c89a2a', clothL:'#f0d060', glass:['#f0c040','#e86a2a','#8ac85a','#f0e090'], sign:'sheaf' },  // Ashfield
+  { wall:'#e0e0e8', wallL:'#ffffff', wallD:'#a8a8b8', fA:'#d8dce6', fB:'#b8c0d8', pew:'#5a3a22', pewL:'#7a5432', cloth:'#2a4a9a', clothL:'#e8c25a', glass:['#2a4a9a','#e8c25a','#c83a3a','#ffffff'], sign:'crown' },   // Stormgate
+  { wall:'#4a3e52', wallL:'#6a5c72', wallD:'#2a2232', fA:'#6a5e5a', fB:'#5e524e', pew:'#3a2a22', pewL:'#5a4232', cloth:'#5a3a8a', clothL:'#e8c25a', glass:['#8a6ac8','#ffd27a','#5a8ac8','#f0e8f8'], sign:'lamp' },    // Shadowmere
+  { wall:'#e8f0e8', wallL:'#ffffff', wallD:'#b0c4b8', fA:'#f0cc68', fB:'#e8c25a', pew:'#8a5a2a', pewL:'#b07a3a', cloth:'#ffffff', clothL:'#e8c25a', glass:['#5ac87a','#4a8ae8','#e84a6a','#e8c040','#a86ae8','#4ad8d0'], sign:'rainbow' }, // Hellgate, made new
+];
+function sanctTown(){ const m=/^sanct(\d)$/.exec(place&&place.id||''); return m?+m[1]:-1; }
+function _hlGlass(x,y,w,h,cols,k){ // a pointed lancet of coloured glass with leading
+  px(x-1,y-2,w+2,h+3,'#2a2420'); for(let i=0;i<w;i+=2) for(let j=0;j<h;j+=3){ px(x+i,y+j,2,3,cols[(i/2+j/3+k)%cols.length]); }
+  for(let i=0;i<w;i+=2) px(x+i,y,1,h,'rgba(30,24,20,0.5)'); for(let j=3;j<h;j+=3) px(x,y+j,w,1,'rgba(30,24,20,0.5)');
+  px(x+(w>>1)-1,y-3,2,2,'#2a2420'); px(x,y,w,1,'rgba(255,255,255,0.45)'); }
+function _hlSign(kind,cx,cy,c,cL){ // the town's sign, small
+  switch(kind){
+    case 'wheat': px(cx,cy-4,1,8,c); for(let i=0;i<3;i++){ px(cx-2,cy-3+i*2,2,1,cL); px(cx+1,cy-3+i*2,2,1,cL); } break;
+    case 'anvil': px(cx-3,cy-2,7,2,c); px(cx-1,cy,3,2,c); px(cx-2,cy+2,5,1,c); px(cx,cy-5,1,3,cL); break;
+    case 'anchor': px(cx,cy-4,1,7,c); px(cx-2,cy-3,5,1,c); px(cx-3,cy+2,2,1,c); px(cx+2,cy+2,2,1,c); px(cx-1,cy+3,3,1,c); break;
+    case 'rose': ctx.fillStyle=cL; ctx.beginPath(); ctx.arc(cx,cy,3,0,7); ctx.fill(); px(cx-1,cy-1,2,2,c); px(cx,cy+3,1,3,'#3a6a3a'); break;
+    case 'star': for(let i=0;i<4;i++){ px(cx-3+i,cy-3+i,1,1,cL); px(cx+3-i,cy-3+i,1,1,cL); px(cx-3+i,cy+3-i,1,1,cL); px(cx+3-i,cy+3-i,1,1,cL); } px(cx-4,cy,9,1,cL); px(cx,cy-4,1,9,cL); break;
+    case 'crystal': for(let r=0;r<6;r++) px(cx-(r>>1),cy-3+r,1+(r>>1)*2,1,r<2?'#ffffff':cL); break;
+    case 'sheaf': for(let i=-2;i<=2;i++) px(cx+i,cy-4+Math.abs(i),1,7-Math.abs(i),cL); px(cx-2,cy+1,5,1,c); break;
+    case 'crown': px(cx-3,cy,7,3,cL); px(cx-3,cy-2,1,2,cL); px(cx,cy-3,1,3,cL); px(cx+3,cy-2,1,2,cL); break;
+    case 'lamp': px(cx-2,cy-2,4,5,'#2a2420'); px(cx-1,cy-1,2,3,'#ffd27a'); px(cx-1,cy-4,2,2,'#2a2420'); break;
+    case 'rainbow': ['#e84a4a','#f0b030','#f4e040','#5ac87a','#4a8ae8','#a86ae8'].forEach((col,i)=>{ ctx.strokeStyle=col; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(cx,cy+3,6-i,Math.PI,0); ctx.stroke(); }); break;
+  }
+}
+function drawSanctuaryTile(t,x,y,tx,ty){
+  const n=sanctTown(); if(n<0) return false; const S=SANCT[n], I=INTERIORS[place.id], f=I&&I.floors[0]; if(!f) return false;
+  const W=f.w, H=f.h, g=f.g, h=_hlH(tx,ty,n), now=performance.now()/1000;
+  const floor=()=>{ const a=(tx+ty)%2===0; px(x,y,TILE,TILE,a?S.fA:S.fB); px(x,y,TILE,1,'rgba(0,0,0,0.08)'); px(x,y,1,TILE,'rgba(0,0,0,0.08)'); if(h%7===0) px(x+3+(h>>>4)%9,y+5,4,1,'rgba(0,0,0,0.06)');
+    if(tx===6 && ty>=5 && ty<H-1){ px(x+2,y,12,TILE,S.cloth); px(x+2,y,1,TILE,S.clothL); px(x+13,y,1,TILE,S.clothL); if(ty%2===0){ px(x+6,y+6,4,4,S.clothL); } }   // the runner up the aisle
+    if(g[ty-1]&&g[ty-1][tx]===5){ px(x,y,TILE,4,'rgba(0,0,0,0.16)'); } };
+  switch(t){
+    case 5: { // walls: the back wall (row 0) seen face on, the side walls and the front from above
+      if(ty===0){ px(x,y,TILE,TILE,S.wall); px(x,y,TILE,2,S.wallL); px(x,y+TILE-2,TILE,2,S.wallD); for(let r=4;r<TILE;r+=5) px(x,y+r,TILE,1,'rgba(0,0,0,0.12)');
+        if(tx===2||tx===W-3) _hlGlass(x+4,y+3,8,11,S.glass,tx);                                                   // tall windows either side of the altar
+        if(tx===6){ ctx.fillStyle='#2a2420'; ctx.beginPath(); ctx.arc(x+8,y+8,7,0,7); ctx.fill(); for(let i=0;i<8;i++){ const a=i*Math.PI/4; ctx.fillStyle=S.glass[i%S.glass.length]; ctx.beginPath(); ctx.moveTo(x+8,y+8); ctx.arc(x+8,y+8,6,a,a+Math.PI/4); ctx.closePath(); ctx.fill(); }   // a rose window over the altar
+          ctx.fillStyle='#fff6d8'; ctx.beginPath(); ctx.arc(x+8,y+8,2,0,7); ctx.fill(); }
+        return true; }
+      px(x,y,TILE,TILE,S.wall); if(ty%2===0) px(x,y+7,TILE,1,'rgba(0,0,0,0.10)'); px(x+((tx+ty)%2)*8,y,1,7,'rgba(0,0,0,0.08)');
+      const g2=(a,b)=>g[b]&&g[b][a]===5; if(!g2(tx+1,ty)&&tx<W-1) px(x+TILE-2,y,2,TILE,S.wallD); if(!g2(tx-1,ty)&&tx>0) px(x,y,2,TILE,S.wallD); if(!g2(tx,ty+1)&&ty<H-1) px(x,y+TILE-2,TILE,2,S.wallD); if(!g2(tx,ty-1)&&ty>0) px(x,y,TILE,2,S.wallL);
+      if((tx===0||tx===W-1) && ty>=5 && ty<H-2 && ty%3===0){ _hlGlass(x+5,y+2,6,12,S.glass,ty); }                   // lancets down the long walls
+      if(ty===H-1 && (tx===5||tx===7)){ px(x+6,y+2,4,10,S.wallD); px(x+7,y+3,2,8,'#ffd27a'); }                       // candle niches by the door
+      return true; }
+    case 12: floor(); return true;
+    case 9: floor(); px(x+3,y+4,10,12,'#5a3a22'); px(x+4,y+5,8,11,'#7a5432'); px(x+8,y+5,1,11,'#4a2a18'); px(x+10,y+10,1,1,'#e8c25a'); return true;   // the door home
+    case 13: { floor(); // pews: a run of oak with carved ends
+      const l=g[ty][tx-1]===13, r=g[ty][tx+1]===13;
+      px(x,y+3,TILE,5,S.pewL); px(x,y+3,TILE,1,'#ffffff30'); px(x,y+8,TILE,5,S.pew); px(x,y+13,TILE,1,'rgba(0,0,0,0.3)');
+      if(!l){ px(x,y+1,3,13,S.pew); px(x,y+1,3,1,S.pewL); } if(!r){ px(x+TILE-3,y+1,3,13,S.pew); px(x+TILE-3,y+1,3,1,S.pewL); }
+      if(h%9===0 && !l) { px(x+4,y+4,3,2,S.cloth); }                                                                // a hymnal left on the seat
+      return true; }
+    case 15: case 14: { // the chancel: a raised floor of finer stone, its step down to the nave
+      px(x,y,TILE,TILE,S.wallL); px(x,y,TILE,1,'rgba(0,0,0,0.06)'); px(x,y,1,TILE,'rgba(0,0,0,0.06)');
+      if(tx>=4 && tx<=8 && t===15){ px(x,y+3,TILE,10,S.cloth); px(x,y+3,TILE,1,S.clothL); px(x,y+12,TILE,1,S.clothL); }   // a carpet before the altar
+      if(t===14){ px(x,y+9,TILE,3,S.wallD); px(x,y+9,TILE,1,S.wallL); px(x,y+12,TILE,4,'rgba(0,0,0,0.18)'); if(tx===6) { px(x+2,y,12,TILE,S.cloth); px(x+2,y+9,12,1,S.clothL); } }
+      return true; }
+    case 17: { px(x,y,TILE,TILE,S.wallL); // the altar: dressed in the town's cloth, candles burning
+      px(x,y+3,TILE,11,S.cloth); px(x,y+3,TILE,2,S.clothL); for(let i=1;i<TILE;i+=4) px(x+i,y+12,2,2,S.clothL);
+      if(tx%2===1){ px(x+7,y-3,2,6,'#f4eee0'); const fl=Math.sin(now*7+tx)>0?1:0; px(x+7,y-6-fl,2,3,'#ffd27a'); px(x+7,y-5-fl,1,1,'#fff6d0');
+        ctx.globalAlpha=0.18; ctx.fillStyle='#ffd27a'; ctx.beginPath(); ctx.arc(x+8,y-4,9,0,7); ctx.fill(); ctx.globalAlpha=1; }
+      else { px(x+5,y-1,6,4,'#e8c25a'); px(x+6,y-3,4,2,'#f8e08a'); }                                                // a gold vessel
+      return true; }
+    case 18: { px(x,y,TILE,TILE,S.wallL); // the pulpit, carved, the town's sign on its front
+      px(x+1,y+2,14,13,S.pew); px(x+1,y+2,14,2,S.pewL); px(x+3,y+5,10,8,S.pewL); _hlSign(S.sign,x+8,y+9,S.cloth,S.clothL); px(x+2,y-1,TILE-4,4,'#e9e3d4'); px(x+2,y-1,TILE-4,1,'#fffaf0'); px(x+7,y-1,1,4,'#b0a68a'); px(x+2,y+2,TILE-4,1,S.clothL); return true; }   // the open book the priest teaches from
+  }
+  return false;
+}
+// coloured light thrown by the windows down the long walls, over the floor (and the people)
+function sanctuaryLight(camX,camY){
+  const n=sanctTown(); if(n<0) return; const S=SANCT[n], f=INTERIORS[place.id].floors[0], now=performance.now()/1000;
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  for(let ty=5;ty<f.h-2;ty++){ if(ty%3) continue; for(const [wx,dir] of [[0,1],[f.w-1,-1]]){
+    const X=(wx+0.5)*TILE-camX, Y=(ty+0.5)*TILE-camY, c=S.glass[(ty+wx)%S.glass.length];
+    ctx.globalAlpha=0.10+0.03*Math.sin(now*0.6+ty); ctx.fillStyle=c; ctx.beginPath(); ctx.moveTo(X,Y-5); ctx.lineTo(X+dir*TILE*3.2,Y+TILE*0.9); ctx.lineTo(X+dir*TILE*3.2,Y+TILE*2.0); ctx.lineTo(X,Y+5); ctx.closePath(); ctx.fill(); } }
+  { const X=6.5*TILE-camX, Y=0.6*TILE-camY; const gr=ctx.createRadialGradient(X,Y,0,X,Y,TILE*5); gr.addColorStop(0,'rgba(255,240,200,0.22)'); gr.addColorStop(1,'rgba(255,240,200,0)'); ctx.globalAlpha=1; ctx.fillStyle=gr; ctx.fillRect(X-TILE*5,Y-TILE*2,TILE*10,TILE*8); }   // the glow of the rose window
+  ctx.restore();
+}
+
+// ── THE THRONE HALL ──
+function drawThroneHall(camX, camY, t, quiet){
+  const W=THALL.W, H=THALL.H, cx=THALL.cx, sx=(tx)=>tx*TILE-camX, sy=(ty)=>ty*TILE-camY;
+  const P=(a,b,w,h,c)=>px(Math.round(a),Math.round(b),w,h,c), now=performance.now()/1000;
+  const gold='#e8c766', goldL='#f8e29a', goldD='#a8842e', blue='#2f4a8f', blueL='#5a78c0', blueD='#1c2c58', red='#8f2f2f', redL='#b04a4a', redD='#5c1c1c';
+  const mA='#dcd6ca', mB='#cac2b4', mV='#bcb4a6';
+  // ── the floor: marble in great diamonds, gold inlay at every crossing ──
+  P(-camX,-camY,W*TILE,H*TILE,'#2a241e');
+  for(let ty=0;ty<H;ty++) for(let tx=0;tx<W;tx++){ const X=sx(tx), Y=sy(ty), d=((tx+ty)%2===0);
+    P(X,Y,TILE,TILE,d?mA:mB); const k=_hlH(tx,ty,4); if(k%4===0){ P(X+2+(k>>>4)%8,Y+3+(k>>>8)%8,4,1,mV); P(X+5+(k>>>4)%8,Y+4+(k>>>8)%8,3,1,mV); }   // veining, drifting across
+    P(X,Y,TILE,1,'rgba(0,0,0,0.07)'); P(X,Y,1,TILE,'rgba(0,0,0,0.07)'); if((tx+ty)%2===0){ P(X-1,Y-1,3,3,goldD); P(X,Y,1,1,goldL); } }
+  // ── the long walls: tall windows of clear and blue glass between gilded pillars ──
+  for(const colx of [1, W-3]){ const X=sx(colx);
+    for(let ty=0;ty<H;ty++){ P(X,sy(ty),TILE*2,TILE,'#b8b0a0'); P(X,sy(ty),3,TILE,'#d4ccbc'); P(X+TILE*2-3,sy(ty),3,TILE,'#8a8274'); }
+    for(let ty=6;ty<H-1;ty+=4){ // a window
+      const wy=sy(ty); P(X+5,wy-2,TILE*2-10,TILE*2+6,'#3a3028'); for(let j=0;j<TILE*2+4;j+=3) for(let i=0;i<TILE*2-12;i+=3) P(X+6+i,wy-1+j,3,3,((i/3+j/3)%5===0)?'#5a7ac8':((i/3+j/3)%3===0)?'#e8c766':'#cfe0f0');
+      P(X+5,wy-3,TILE*2-10,2,goldD); P(X+TILE-1,wy-5,2,3,goldD); }
+    for(let ty=4;ty<H;ty+=4){ P(X-2,sy(ty)-2,TILE*2+4,4,gold); P(X-2,sy(ty)-2,TILE*2+4,1,goldL); P(X-2,sy(ty)+1,TILE*2+4,1,goldD); }   // gilded bands, pillar to pillar
+  }
+  // ── the royal carpet: crimson, gold-bordered, its pattern up the centre ──
+  for(let ty=5;ty<H;ty++){ const X=sx(cx-1), Y=sy(ty);
+    P(X,Y,TILE*3,TILE,red); P(X,Y,3,TILE,gold); P(X+TILE*3-3,Y,3,TILE,gold); P(X+3,Y,1,TILE,goldD); P(X+TILE*3-4,Y,1,TILE,goldD);
+    P(sx(cx)+1,Y+1,TILE-2,TILE-2,redD); if(ty%2===0){ for(let i=0;i<4;i++) P(sx(cx)+8-i,Y+4+i,i*2+1,1,redL); for(let i=0;i<3;i++) P(sx(cx)+6+i,Y+8+i,5-i*2,1,redL); P(sx(cx)+7,Y+7,2,2,gold); } }
+  // ── the dais, three tiers ──
+  for(let s=0;s<3;s++){ const ty=3+s, wid=5+s*2, half=(wid/2)|0, X=sx(cx-half), Y=sy(ty);
+    P(X,Y,wid*TILE,TILE,s%2?'#e0dace':'#d0c8ba'); P(X,Y,wid*TILE,2,'#f4f0e8'); P(X,Y+TILE-2,wid*TILE,2,'#8a8274'); P(X,Y+TILE-4,wid*TILE,1,goldD);
+    P(sx(cx-1),Y,TILE*3,TILE,red); P(sx(cx-1),Y,3,TILE,gold); P(sx(cx+1)+TILE-3,Y,3,TILE,gold); }
+  // ── behind the throne: a rose window and a canopy of state ──
+  const T=sx(cx);
+  { const rx=T+8, ry=sy(0)+14; P(sx(cx-2),sy(0),TILE*5,TILE*2+8,'#cfc7b8'); ctx.fillStyle='#3a3028'; ctx.beginPath(); ctx.arc(rx,ry,15,0,7); ctx.fill();
+    const gl=['#2f4a8f','#e8c766','#c0392b','#5a78c0','#f8e29a','#2f4a8f'];
+    for(let i=0;i<12;i++){ const a=i*Math.PI/6+now*0.02; ctx.fillStyle=gl[i%gl.length]; ctx.beginPath(); ctx.moveTo(rx,ry); ctx.arc(rx,ry,13,a,a+Math.PI/6); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle='#fff6d8'; ctx.beginPath(); ctx.arc(rx,ry,4,0,7); ctx.fill(); ctx.strokeStyle=goldD; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(rx,ry,14,0,7); ctx.stroke(); }
+  { const X=sx(cx-1)-4, Y=sy(1)-2, w=TILE*3+8;                                                                  // the canopy: blue, gold-fringed, swagged
+    P(X,Y,w,6,blueD); P(X,Y,w,2,blueL); for(let i=0;i<w;i+=4){ P(X+i,Y+6,3,3+((i/4)%2),gold); }
+    P(X,Y+6,3,TILE*3,blue); P(X+w-3,Y+6,3,TILE*3,blue); P(X,Y+6,1,TILE*3,blueL); P(X+w-1,Y+6,1,TILE*3,blueD); P(X-1,Y-3,w+2,3,gold); P(X+w/2-2,Y-7,4,4,goldL); }
+  // the throne itself (as before, gilded), the King upon it
+  P(T-TILE+2,sy(1)+6,TILE*3-4,TILE*3-4,goldD); P(T-TILE+2,sy(1)+6,TILE*3-4,2,gold);
+  P(T-TILE+5,sy(1)+9,TILE*3-10,TILE*3-12,'#3a4e86');
+  P(T-TILE+2,sy(1)+6,3,TILE*3-4,gold); P(T+TILE*2-5,sy(1)+6,3,TILE*3-4,gold);
+  P(T-TILE-1,sy(3)+2,4,TILE,goldD); P(T+TILE*2-3,sy(3)+2,4,TILE,goldD); P(T-TILE-1,sy(3),4,3,goldL); P(T+TILE*2-3,sy(3),4,3,goldL);
+  P(T-1,sy(2)+8,TILE+2,TILE-2,red); P(T-1,sy(2)+8,TILE+2,2,redL);
+  drawKingLuminar(T-4, sy(1)+10);
+  P(T+TILE/2-1,sy(0)+28,3,7,goldL); P(T+TILE/2-3,sy(0)+30,7,2,goldL);                                              // the cross on the throne's crest
+  // heraldry either side of the dais
+  for(const rx of [3, W-5]){ P(sx(rx),sy(1),TILE,TILE*2,red); P(sx(rx),sy(1),TILE,1,redL); P(sx(rx)+4,sy(1)+3,TILE-8,5,'#e8e2d0'); P(sx(rx)+5,sy(1)+4,TILE-10,2,'#a49a8a');
+    P(sx(rx)+3,sy(1)+TILE*2,3,3,red); P(sx(rx)+TILE-6,sy(1)+TILE*2,3,3,red); P(sx(rx),sy(1)-2,TILE,2,gold); }
+  // ── the people and furniture of the hall, exactly as they stand (same order, same places) ──
+  function brazier(colx, ty){ const bx=sx(colx)+4, by=sy(ty);
+    P(bx+1,by+4,3,TILE-2,goldD); P(bx,by+TILE+1,5,2,goldD); P(bx-1,by+1,7,4,gold); P(bx-1,by+1,7,1,goldL);
+    const fl=(Math.sin(t*0.03+ty)+1)*0.5; P(bx,by-4,5,5,'#e0662f'); P(bx+1,by-6,3,4,'#f2a83a'); P(bx+2,by-8,1,3,'#ffe08a'); if(fl>0.5) P(bx+1,by-9,2,2,'#fff0b0'); }
+  function bannerPole(colx, ty){ const bx=sx(colx)+6, by=sy(ty);
+    P(bx,by,2,TILE*2,'#6a4a2a'); P(bx-4,by,10,TILE+3,blue); P(bx-4,by,10,1,blueL); P(bx-2,by+3,6,4,gold); P(bx-1,by+2,4,1,goldL); P(bx-4,by+TILE+3,10,2,blueD); }
+  drawRoyalGuard(sx(cx-2), sy(8), 'right'); drawRoyalGuard(sx(cx+2), sy(8), 'left');
+  if(!quiet){ let slot=0;
+    for(let ty=11; ty<=H-3; ty+=3){ const kind=slot%3;
+      if(kind===0){ drawRoyalGuard(sx(cx-2), sy(ty), 'right'); drawRoyalGuard(sx(cx+2), sy(ty), 'left'); }
+      else if(kind===1){ brazier(cx-2, ty); brazier(cx+2, ty); } else { bannerPole(cx-2, ty); bannerPole(cx+2, ty); }
+      slot++; }
+  } else { drawRoyalGuard(sx(cx-2), sy(14), 'right'); drawRoyalGuard(sx(cx+2), sy(14), 'left'); brazier(2, 12); brazier(W-3, 12); brazier(2, 20); brazier(W-3, 20); }
+  brazier(cx-3,4); brazier(cx+2,4);
+  if(!quiet){
+    if(_band) for(const b of _band){ const lift=Math.sin(t*0.03+b.tx)>0?-1:0; drawTrumpeter(sx(b.tx), sy(b.ty)+lift, b.dir); }
+    if(_crowdSeed) for(const c of _crowdSeed){ const bob=Math.sin(t*0.02+c.ph*2)>0?-1:0;
+      drawVillager(sx(c.tx), sy(c.ty)+bob, {outfit:c.outfit, dir:c.face, moving:true, frame:(bob?1:3)}); if(bob) P(sx(c.tx)+7, sy(c.ty)-4, 1,2,gold); }
+  }
+  // ── light: shafts from the windows across the floor, and the chandeliers ──
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  for(let ty=6;ty<H-1;ty+=4) for(const [colx,dir] of [[3,1],[W-3,-1]]){ const X=sx(colx), Y=sy(ty);
+    ctx.globalAlpha=0.05+0.015*Math.sin(now*0.5+ty); ctx.fillStyle='#fff2c8'; ctx.beginPath(); ctx.moveTo(X,Y-2); ctx.lineTo(X+dir*TILE*4,Y+TILE*1.2); ctx.lineTo(X+dir*TILE*4,Y+TILE*3.0); ctx.lineTo(X,Y+TILE*2+2); ctx.closePath(); ctx.fill(); }
+  ctx.restore();
+  for(let ty=9;ty<H-2;ty+=8){ const X=sx(cx)+8, Y=sy(ty)-6;                                                         // a chandelier, hung over the carpet
+    ctx.strokeStyle='rgba(60,50,30,0.6)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(X,Y-20); ctx.lineTo(X,Y); ctx.stroke();
+    P(X-10,Y,21,2,goldD); P(X-10,Y,21,1,goldL); for(const dx of [-10,-5,0,5,10]){ P(X+dx-1,Y-4,2,4,'#f4eee0'); const fl=Math.sin(now*8+dx)>0?1:0; P(X+dx-1,Y-7-fl,2,3,'#ffd27a'); }
+    const g=ctx.createRadialGradient(X,Y,0,X,Y,34); g.addColorStop(0,'rgba(255,214,130,0.22)'); g.addColorStop(1,'rgba(255,214,130,0)'); ctx.fillStyle=g; ctx.fillRect(X-34,Y-34,68,68); }
+  if(!quiet && _confetti) for(const p of _confetti){ P(p.x-camX, p.y-camY, p.sz, p.sz, p.c); }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  🌾 THE HOMESTEAD — THE FAMILY FARM IN THE FOG-WOOD CLEARING (2026-10-01 revamp)
+//  The knight's reward: a farmstead in a sunny clearing ringed by the wood. A fieldstone
+//  and lime-washed farmhouse under a deep thatch with a porch and a cat on the bench; a
+//  red barn with a hayloft and a weathervane; the travelling merchants' striped pavilion;
+//  furrowed fields, a split-rail corral, a timber footbridge over the creek, reeds and
+//  lilies and a family of ducks on the pond, hens about the coop, bees at the skeps, and
+//  at night lit windows and fireflies. ("He maketh me to lie down in green pastures:
+//  he leadeth me beside the still waters." Psalm 23:2)
+//  Drawn: meadow (0 4 7), track (2), fields (31), corral (14), signs (16), the bridge (12),
+//  the water's edge (3), the ground under buildings and props (5 9); the three buildings;
+//  the farm's props. Every tile, plot, door and sign is where it was. The player's own
+//  placed decorations ('hs') keep their own art.
+// ════════════════════════════════════════════════════════════════
+function hsAt(tx,ty){ return (tx>=7&&tx<=45&&ty>=119&&ty<=164) || (tx>=27&&tx<=50&&ty>=157&&ty<=178) || (tx>=9&&tx<=17&&ty>=164&&ty<=190) || (tx>=12&&tx<=29&&ty>=184&&ty<=190); }
+function _hsHash(tx,ty,s){ let h=(tx*374761393 + ty*668265263 + (s||0)*982451653)>>>0; h=(h^(h>>>13))*1274126177>>>0; return (h^(h>>>16))>>>0; }
+const _hsT = ()=>performance.now()/1000;
+const _hsNight = ()=>typeof isNight==='function' && isNight();
+const HSP = { thatch:'#d2a650', thatchL:'#ebc978', thatchD:'#a87c36', thatchDD:'#7c5826',
+  lime:'#f1e6cc', limeL:'#fff8e6', limeD:'#d4c4a2', timber:'#6a4628', timberD:'#4a2f1a', timberL:'#8a6038',
+  stone:'#a89e8e', stoneL:'#c4bcae', stoneD:'#7e7568', stoneDD:'#5e574c',
+  red:'#b0443a', redL:'#cc5a4a', redD:'#82302a', trim:'#f2ead8', trimD:'#cfc6b2',
+  shing:'#5a4a44', shingL:'#6e5c54', shingD:'#3e322e', shutter:'#4a7a8a', shutterD:'#365a66',
+  soil:'#6a4a2e', soilD:'#523822', soilL:'#80603c', rail:'#8a7058', railL:'#a88c70', railD:'#5e4a38',
+  plank:'#9a7650', plankL:'#b89268', plankD:'#6e5236', hay:'#e2c060', hayL:'#f4dc8a', hayD:'#b8943a',
+  glass:'#9fc4d8', glassL:'#d8eef6', lit:'#ffd27a', litL:'#fff0b8', OL:'#22180f' };
+
+// ── ground ──
+function _hsGround(t,x,y,tx,ty){ // the open-country painter, with the farm's own touches, cached per tile
+  const g=OW_PAINTERS[t===4||t===7?t:0];
+  const c=_owSprite(5,tx,ty,TILE,TILE,0,0,(ox,oy)=>{ g(ox,oy,tx,ty); const h=_hsHash(tx,ty,1);
+    if(t===0){ if(h%9===0){ const fx=ox+2+((h>>>4)%11), fy=oy+3+((h>>>8)%10); _p(fx,fy,1,1,'#ffffff'); _p(fx-1,fy+1,3,1,'#ffffff'); _p(fx,fy+2,1,1,'#ffffff'); _p(fx,fy+1,1,1,'#f4d040'); } // a daisy
+      if(h%13===1){ const fx=ox+3+((h>>>5)%10), fy=oy+4+((h>>>9)%9); _p(fx,fy,2,2,'#f4d040'); _p(fx,fy+2,1,2,'#3f7a46'); } }                     // a buttercup
+    if(t===4){ const cols=['#e84a3a','#5a7ae8','#ffffff','#f4d040','#e88ac0'];                                                                    // poppies, cornflowers, daisies, buttercups
+      for(let i=0;i<4;i++){ const k=_hsHash(tx,ty,10+i), fx=ox+1+(k%13), fy=oy+2+((k>>>4)%11), cc=cols[(k>>>8)%5]; _p(fx,fy+2,1,3,'#2f6e36'); _p(fx-1,fy,3,2,cc); _p(fx,fy,1,1,'#fff6c0'); } }
+  });
+  if(c) ctx.drawImage(c,x,y);
+}
+// the tilled fields: deep furrows across, a lip of straw where the field meets the grass
+function _hsSoil(x,y,tx,ty){
+  const c=_owSprite(6,tx,ty,TILE,TILE,0,0,(ox,oy)=>{ const W=WORLD, f=(a,b)=>W[ty+b]&&W[ty+b][tx+a]===31, h=_hsHash(tx,ty,2);
+    _p(ox,oy,TILE,TILE,HSP.soil);
+    for(let r=0;r<4;r++){ const yy=oy+r*4; _p(ox,yy,TILE,1,HSP.soilL); _p(ox,yy+2,TILE,2,HSP.soilD); }                 // ridges and furrows
+    for(let i=0;i<4;i++){ const k=(h>>>(i*6))&255; _p(ox+(k%15),oy+((k>>4)%4)*4,1,1,'#9a7a52'); }                       // clods
+    if(!f(0,-1)){ _p(ox,oy,TILE,2,'#5a8a44'); for(let i=0;i<TILE;i+=3) _p(ox+i,oy+2,2,1,HSP.hayD); }
+    if(!f(0,1)){ _p(ox,oy+TILE-2,TILE,2,'#4a7a3a'); for(let i=1;i<TILE;i+=3) _p(ox+i,oy+TILE-3,2,1,HSP.hayD); }
+    if(!f(-1,0)){ _p(ox,oy,2,TILE,'#5a8a44'); _p(ox+2,oy,1,TILE,HSP.soilD); }
+    if(!f(1,0)){ _p(ox+TILE-2,oy,2,TILE,'#4a7a3a'); _p(ox+TILE-3,oy,1,TILE,HSP.soilD); }
+  });
+  if(c) ctx.drawImage(c,x,y);
+}
+// the corral: weathered split rails between round posts
+function _hsRail(x,y,tx,ty){
+  _hsGround(0,x,y,tx,ty);
+  const W=WORLD, f=(a,b)=>{ const q=W[ty+b]&&W[ty+b][tx+a]; return q===14||q===16; };
+  const ew=f(-1,0)||f(1,0), ns=f(0,-1)||f(0,1);
+  ctx.fillStyle='rgba(20,30,10,.22)';
+  if(ew||!ns){ ctx.fillRect(x,y+13,TILE,2); for(const [ry,s] of [[4,0],[9,1]]){ px(x,y+ry,TILE,2,HSP.rail); px(x,y+ry,TILE,1,HSP.railL); px(x+((tx*5+s*7)%11),y+ry+1,3,1,HSP.railD); } }
+  if(ns){ ctx.fillRect(x+10,y,2,TILE); for(const rx of [5,10]){ px(x+rx,y,2,TILE,HSP.rail); px(x+rx,y,1,TILE,HSP.railL); } }
+  const corner=(ew&&ns)||!(f(-1,0)&&f(1,0))&&!(f(0,-1)&&f(0,1)), mid=(ew&&!ns&&tx%2===0)||(ns&&!ew&&ty%2===0);
+  if(corner||mid){ px(x+6,y+1,4,13,HSP.railD); px(x+6,y+1,4,1,HSP.railL); px(x+7,y+2,1,11,HSP.rail); px(x+6,y,4,1,'#4a3a2c'); }
+}
+// a farm signpost: a board on a post, with the thing it tells of painted on it
+function _hsSign(x,y,tx,ty){
+  const s=(signs[tx+','+ty]||''), W=WORLD, onRail=[[-1,0],[1,0]].some(([a])=>W[ty]&&W[ty][tx+a]===14);
+  if(onRail) _hsRail(x,y,tx,ty); else _hsGround(0,x,y,tx,ty);
+  ctx.fillStyle='rgba(20,30,10,.25)'; ctx.beginPath(); ctx.ellipse(x+8,y+14,5,1.6,0,0,7); ctx.fill();
+  if(onRail){ // the corral gate: tall posts, a crossbar and the tourney's horseshoe
+    px(x+1,y-10,3,24,HSP.railD); px(x+12,y-10,3,24,HSP.railD); px(x+1,y-10,1,24,HSP.railL); px(x+12,y-10,1,24,HSP.railL);
+    px(x,y-12,TILE,3,HSP.rail); px(x,y-12,TILE,1,HSP.railL);
+    ctx.strokeStyle='#c8ccd4'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x+8,y-4,3,Math.PI*0.15,Math.PI*0.85,true); ctx.stroke(); px(x+7,y-9,2,2,'#c8ccd4');
+    px(x+3,y+3,10,2,HSP.rail); px(x+3,y+8,10,2,HSP.rail); px(x+4,y+3,1,7,HSP.railD); px(x+11,y+3,1,7,HSP.railD);
+    return; }
+  px(x+7,y-2,2,16,HSP.timberD); px(x+7,y-2,1,16,HSP.timberL);
+  px(x+1,y-6,14,9,HSP.OL); px(x+2,y-5,12,7,HSP.plank); px(x+2,y-5,12,1,HSP.plankL); px(x+2,y+1,12,1,HSP.plankD);
+  const ic=s.indexOf('POND')>=0?'fish':s.indexOf('FIELDS')>=0?'wheat':s.indexOf('FARM STAND')>=0?'coin':'home';
+  if(ic==='fish'){ px(x+5,y-3,5,3,'#6a9ac8'); px(x+10,y-4,2,5,'#6a9ac8'); px(x+6,y-3,1,1,HSP.OL); }
+  else if(ic==='wheat'){ for(const dx of [5,8,11]){ px(x+dx,y-4,1,5,HSP.hayD); px(x+dx-1,y-4,3,2,HSP.hay); } }
+  else if(ic==='coin'){ px(x+6,y-4,5,5,'#e0b84a'); px(x+7,y-3,3,3,'#f8e08a'); px(x+8,y-3,1,3,'#b88a2a'); }
+  else { px(x+5,y-1,6,3,HSP.lime); px(x+4,y-3,8,2,HSP.thatchD); px(x+5,y-4,6,1,HSP.thatch); px(x+7,y,2,2,HSP.timberD); px(x+10,y-5,2,2,'#e84a3a'); }
+}
+// the footbridge over the creek: boards across, a handrail each side
+function _hsBridge(x,y,tx,ty){
+  drawOverworldTile(3,x,y,tx,ty);
+  const W=WORLD, n=W[ty-1]&&W[ty-1][tx]===12, s=W[ty+1]&&W[ty+1][tx]===12;
+  ctx.fillStyle='rgba(10,30,50,.35)'; ctx.fillRect(x+1,y+2,TILE-2,TILE);
+  px(x+2,y,12,TILE,HSP.plankD);
+  for(let i=0;i<TILE;i+=4){ px(x+2,y+i,12,3,HSP.plank); px(x+2,y+i,12,1,HSP.plankL); px(x+3+((tx+ty+i)%3)*4,y+i+1,1,1,HSP.plankD); }
+  px(x,y,2,TILE,HSP.timber); px(x+14,y,2,TILE,HSP.timber); px(x,y,1,TILE,HSP.timberL); px(x+14,y,1,TILE,HSP.timberL);   // the rails
+  for(const py of (n?[]:[0]).concat(s?[]:[TILE-4])){ px(x-1,y+py-3,4,7,HSP.timberD); px(x+13,y+py-3,4,7,HSP.timberD); px(x-1,y+py-3,4,1,HSP.timberL); px(x+13,y+py-3,4,1,HSP.timberL); }
+}
+// the water's edge: reeds and bulrushes by the banks, lily pads out on the pond
+function _hsWater(x,y,tx,ty){
+  drawOverworldTile(3,x,y,tx,ty);
+  const W=WORLD, wet=(a,b)=>{ const q=W[ty+b]&&W[ty+b][tx+a]; return q===3||q===12||q===undefined; }, h=_hsHash(tx,ty,3), t=_hsT();
+  const pond=tx>=28&&ty>=165;
+  if(pond && wet(0,-1)&&wet(0,1)&&wet(-1,0)&&wet(1,0) && h%4===0){ const lx=x+3+(h>>>4)%7, ly=y+4+(h>>>8)%7, b=Math.round(Math.sin(t*0.8+h)*0.6);
+    px(lx,ly+b,7,4,'#3e8a44'); px(lx+1,ly-1+b,5,1,'#3e8a44'); px(lx+1,ly+b,4,1,'#5aa85a'); px(lx+4,ly+1+b,2,1,'#2e6a34');
+    if((h>>>12)%3===0){ px(lx+2,ly-2+b,3,2,'#f4c8dc'); px(lx+3,ly-3+b,1,1,'#ffffff'); px(lx+3,ly-1+b,1,1,'#f4d040'); } }
+  for(const [a,b,side] of [[0,-1,'N'],[-1,0,'W'],[1,0,'E']]){ if(wet(a,b)) continue; if((h>>>(side==='N'?3:side==='W'?6:9))%3) continue;
+    const bx=side==='W'?x+1:side==='E'?x+11:x+3+(h>>>14)%8, by=side==='N'?y+1:y+3+(h>>>16)%6, sw=Math.round(Math.sin(t*1.2+tx)*0.8);
+    for(let i=0;i<3;i++){ const hh=6+((h>>>(i*3))%4); px(bx+i*2+sw,by+8-hh,1,hh,i%2?'#4a8a3a':'#5e9a46'); }
+    px(bx+2+sw,by+1,2,4,'#6a4a2a'); px(bx+2+sw,by,1,1,'#6a4a2a'); }
+}
+function drawHomesteadTile(t,x,y,tx,ty){
+  switch(t){
+    case 0: case 4: case 7: _hsGround(t,x,y,tx,ty); return true;
+    case 31: _hsSoil(x,y,tx,ty); return true;
+    case 14: _hsRail(x,y,tx,ty); return true;
+    case 16: _hsSign(x,y,tx,ty); return true;
+    case 12: _hsBridge(x,y,tx,ty); return true;
+    case 3: _hsWater(x,y,tx,ty); return true;
+    case 5: case 9: _hsGround(0,x,y,tx,ty); return true;   // under the buildings and the props (their art covers it)
+  }
+  return false;   // the trees, the track and the shore are the open country's
+}
+
+// ── the buildings ──
+function _hsShadow(ox,B,W){ ctx.fillStyle='rgba(20,30,10,0.24)'; ctx.beginPath(); ctx.ellipse(ox+W/2+5,B-1,W/2+3,8,0,0,7); ctx.fill(); }
+function _hsThatch(ox,rTop,W,rBot,over,ins){
+  const rH=rBot-rTop;
+  for(let i=0;i<rH;i++){ const k=Math.round((rH-i)/rH*W*(ins||0.14))-over;
+    px(ox+k,rTop+i,W-k*2,1, i<2?HSP.thatchL:(i%4===0?HSP.thatchD:HSP.thatch)); }
+  for(let i=0;i<W;i+=5){ const k=_hsHash(i,rTop,7); px(ox+i+(k%3),rTop+3+(k>>>3)%4,1,rH-8,HSP.thatchD); }   // the straw's grain
+  for(let i=-over;i<W+over;i+=3) px(ox+i,rBot-2,2,3,HSP.thatchDD);                                               // the trimmed eave
+  const k0=Math.round(W*(ins||0.14))-over; px(ox+k0-1,rTop,W-k0*2+2,3,HSP.thatchDD); for(let i=k0;i<W-k0;i+=6) px(ox+i,rTop+1,3,1,HSP.thatchD);   // the ridge, pegged
+}
+function _hsChimney(cx,top,seed,w){ w=w||7;
+  px(cx,top,w,11,HSP.stone); px(cx,top,w,1,HSP.stoneL); px(cx+w-1,top+1,1,10,HSP.stoneD); for(let i=0;i<3;i++) px(cx+1+(i%2)*2,top+3+i*3,3,1,HSP.stoneD); px(cx-1,top-1,w+2,2,HSP.stoneDD);
+  const t=_hsT(); for(let i=0;i<5;i++){ const a=((t*0.35+i*0.2+seed*0.13)%1); ctx.globalAlpha=0.55*(1-a);
+    px(Math.round(cx+w/2-1+a*10+Math.sin(t*1.3+i)*2), Math.round(top-3-a*20), 3+Math.round(a*2), 3+Math.round(a*2), '#eeece6'); } ctx.globalAlpha=1;
+}
+function _hsWin(x,y,w,h,box,shut){ const n=_hsNight();
+  if(shut){ px(x-5,y-1,4,h+2,HSP.shutterD); px(x-4,y,2,h,HSP.shutter); px(x+w+1,y-1,4,h+2,HSP.shutterD); px(x+w+2,y,2,h,HSP.shutter); }
+  px(x-1,y-1,w+2,h+2,HSP.timberD); px(x,y,w,h,n?HSP.lit:HSP.glass); px(x,y,w,1,n?HSP.litL:HSP.glassL); if(!n) px(x+1,y+1,2,2,HSP.glassL);
+  px(x+(w>>1),y,1,h,HSP.timberD); px(x,y+(h>>1),w,1,HSP.timberD);
+  if(n){ const g=ctx.createRadialGradient(x+w/2,y+h/2,0,x+w/2,y+h/2,w*2.2); g.addColorStop(0,'rgba(255,200,110,0.30)'); g.addColorStop(1,'rgba(255,200,110,0)'); ctx.fillStyle=g; ctx.fillRect(x-w*2,y-h*2,w*5,h*5); }
+  if(box){ px(x-2,y+h+1,w+4,3,HSP.timber); px(x-2,y+h+1,w+4,1,HSP.timberL);
+    for(let i=0;i<w+2;i+=2) px(x-1+i,y+h-1,2,2,['#e84a3a','#f4d040','#ffffff','#e88ac0'][((i>>1)+x)%4]); }
+}
+function _hsDoor(dx,dy,col,arch){ // dx,dy = top-left of the door tile
+  px(dx+2,dy-4,12,20,HSP.timberD); px(dx+3,dy-3,10,19,col);
+  for(let i=1;i<4;i++) px(dx+3+i*3-1,dy-3,1,19,'rgba(0,0,0,0.18)');
+  px(dx+3,dy-3,10,1,'rgba(255,255,255,0.25)'); px(dx+3,dy+3,10,1,'rgba(0,0,0,0.25)'); px(dx+11,dy+5,1,2,'#f2c14e');
+  if(arch){ px(dx+4,dy-6,8,2,HSP.timberD); px(dx+6,dy-7,4,1,HSP.timberD); }
+  px(dx+1,dy+14,14,2,HSP.stoneD); px(dx+1,dy+14,14,1,HSP.stone);
+}
+// the family farmhouse: fieldstone below, lime-wash and timber above, a deep thatch with dormers, a porch
+function _hsHouse(b,ox,oy){
+  const W=b.w*TILE, H=b.h*TILE, B=oy+H, wallTop=oy+36, n=_hsNight(), t=_hsT();
+  _hsShadow(ox,B,W);
+  px(ox+3,wallTop,W-6,B-wallTop,HSP.lime); px(ox+3,wallTop,W-6,2,HSP.limeL); px(ox+W-5,wallTop,2,B-wallTop,HSP.limeD);
+  for(const xx of [3,W-6]) px(ox+xx,wallTop,3,B-wallTop,HSP.timber);                                              // the corner posts
+  px(ox+3,wallTop+14,W-6,2,HSP.timber);                                                                             // the rail
+  for(const xx of [22,40,68,86]){ px(ox+xx,wallTop+2,2,12,HSP.timber); }
+  for(const [a,b2] of [[6,22],[86,104]]){ for(let i=0;i<12;i++) px(ox+a+Math.round(i*(b2-a-2)/12),wallTop+2+i,2,1,HSP.timber); }   // the braces
+  // the fieldstone plinth
+  px(ox+3,B-14,W-6,14,HSP.stoneD);
+  for(let r=0;r<3;r++) for(let xx=ox+4+(r%2)*4; xx<ox+W-6; xx+=8){ const k=_hsHash(xx,r,8); px(xx,B-13+r*4,6+(k%2),3,(k>>>3)%3===0?HSP.stoneL:HSP.stone); px(xx,B-13+r*4,6,1,HSP.stoneL); }
+  // the thatch, two dormers, two chimneys
+  _hsThatch(ox,oy+4,W,wallTop+4,4,0.12);
+  for(const dx of [16,W-36]){ const X=ox+dx, Y=oy+16;
+    px(X,Y,20,14,HSP.lime); px(X,Y,20,1,HSP.limeL); _hsWin(X+6,Y+3,8,8,false,false);
+    for(let i=0;i<7;i++) px(X-3+i,Y-2-i+3,26-i*2,1,i<2?HSP.thatchL:HSP.thatch); px(X-3,Y-1,26,2,HSP.thatchDD); }
+  _hsChimney(ox+8,oy-4,b.x,8); _hsChimney(ox+W-17,oy-2,b.y,8);
+  // the porch over the door
+  const dx=ox+(b.door.x-b.x)*TILE, dy=B-TILE;
+  _hsDoor(dx,dy,'#3f6a4a',true);
+  px(dx-9,dy-12,34,5,HSP.thatchD); px(dx-9,dy-12,34,2,HSP.thatchL); for(let i=0;i<34;i+=3) px(dx-9+i,dy-8,2,2,HSP.thatchDD);
+  for(const pxx of [dx-7,dx+21]){ px(pxx,dy-7,3,21,HSP.timber); px(pxx,dy-7,1,21,HSP.timberL); }
+  px(dx+3,dy-9,10,3,HSP.timberD); px(dx+4,dy-8,8,1,'#e0b84a');                                                     // the family's name board
+  { const lx=dx+18, ly=dy-5, f=0.8+0.2*Math.sin(t*5);                                                                  // a porch lantern
+    px(lx,ly,4,5,HSP.OL); px(lx+1,ly+1,2,3,n?'#ffcf6a':'#8a7a5a');
+    if(n){ ctx.save(); ctx.globalCompositeOperation='lighter'; const g=ctx.createRadialGradient(lx+2,ly+3,0,lx+2,ly+3,22*f); g.addColorStop(0,'rgba(255,190,90,0.35)'); g.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=g; ctx.fillRect(lx-24,ly-20,48,48); ctx.restore(); } }
+  // the windows: shuttered and boxed below, small panes above
+  for(const wx of [ox+12, ox+30, ox+W-40, ox+W-22]){ if(Math.abs(wx+5-(dx+8))<16) continue; _hsWin(wx,wallTop+20,10,9,true,true); }
+  for(const wx of [ox+11, ox+W-21]) _hsWin(wx,wallTop+4,8,7,false,false);
+  // the bench by the door, and the cat asleep on it
+  { const bx=dx+30, by=B-9; px(bx,by,16,3,HSP.timber); px(bx,by,16,1,HSP.timberL); px(bx+1,by+3,2,5,HSP.timberD); px(bx+13,by+3,2,5,HSP.timberD); px(bx,by-6,16,2,HSP.timber);
+    if(!n){ const sw=Math.round(Math.sin(t*1.5)*2); px(bx+3,by-4,8,4,'#e08a3a'); px(bx+3,by-4,8,1,'#f4a85a'); px(bx+10,by-6,4,4,'#e08a3a'); px(bx+10,by-7,1,1,'#e08a3a'); px(bx+13,by-7,1,1,'#e08a3a');
+      px(bx+11,by-4,1,1,HSP.OL); px(bx+1,by-3+sw*0.5,3,1,'#e08a3a'); px(bx,by-2+sw*0.5,2,1,'#c8702a'); px(bx+5,by-3,1,3,'#c8702a'); px(bx+8,by-3,1,3,'#c8702a'); } }
+  // a rain-barrel at the corner
+  px(ox+5,B-12,9,12,HSP.timber); px(ox+5,B-12,9,2,'#4a7a9a'); px(ox+5,B-8,9,1,HSP.OL); px(ox+5,B-3,9,1,HSP.OL); px(ox+6,B-11,2,10,HSP.timberL);
+}
+// the red barn: a shingled gambrel, white trim, the big doors X-braced, the hayloft open, a weathervane
+function _hsBarn(b,ox,oy){
+  const W=b.w*TILE, H=b.h*TILE, B=oy+H, wallTop=oy+30, t=_hsT();
+  _hsShadow(ox,B,W);
+  px(ox+2,wallTop,W-4,B-wallTop,HSP.red); for(let xx=ox+4; xx<ox+W-4; xx+=4) px(xx,wallTop+2,1,B-wallTop-4,HSP.redD); px(ox+2,wallTop,W-4,2,HSP.redL);
+  px(ox+2,wallTop,2,B-wallTop,HSP.trim); px(ox+W-4,wallTop,2,B-wallTop,HSP.trim); px(ox+2,B-3,W-4,3,HSP.stoneD);
+  // the roof: steep lower slopes, a flatter crown (a gambrel, seen from the side)
+  const r0=oy+4, rk=oy+14, r1=wallTop+4;
+  for(let y=r0;y<r1;y++){ const ins=y<rk ? Math.round((rk-y)*1.4)+3 : Math.round((r1-y)*0.35)-3; const row=y-r0;
+    px(ox+ins,y,W-ins*2,1, row%4===0?HSP.shingD:(row%4===1?HSP.shingL:HSP.shing)); }
+  for(let y=r0+2;y<r1-2;y+=4) for(let xx=ox+6+((y>>2)%2)*3; xx<ox+W-6; xx+=6) px(xx,y,1,3,HSP.shingD);
+  px(ox+17,r0,W-34,2,HSP.shingD); px(ox-3,r1-2,W+6,3,HSP.trimD); px(ox-3,r1-2,W+6,1,HSP.trim);
+  // the hayloft, a gable in the roof with its door open on the hay
+  { const hx=ox+W/2-10, hy=oy+10; px(hx,hy+4,20,16,HSP.red); px(hx,hy+4,20,1,HSP.redL); for(let i=0;i<10;i++) px(hx-2+i,hy+4-i*0.4,24-i*2,1,HSP.trim);
+    px(hx+5,hy+8,10,10,HSP.trim); px(hx+6,hy+9,8,9,'#3a2418'); px(hx+6,hy+13,8,5,HSP.hay); px(hx+6,hy+12,8,1,HSP.hayL); px(hx+5,hy+17,3,2,HSP.hayL); px(hx+13,hy+16,3,3,HSP.hay);
+    px(hx+9,hy+2,2,3,HSP.timberD); px(hx+9,hy+5,2,3,'#6a6a6a'); }                                                       // the pulley
+  // the cupola and its rooster weathervane, turning in the breeze
+  { const cx=ox+W/2, cy=oy-2, sw=Math.sin(t*0.4); px(cx-5,cy,10,7,HSP.trim); px(cx-4,cy+2,8,4,'#3a2418'); px(cx-6,cy-2,12,3,HSP.shingD);
+    px(cx,cy-9,1,7,'#3a3a3a'); px(cx-3+Math.round(sw),cy-11,6,3,'#2a2a2a'); px(cx+2+Math.round(sw),cy-13,2,2,'#2a2a2a'); px(cx-4+Math.round(sw),cy-12,2,2,'#2a2a2a'); }
+  // the big doors on the door tile, and a window
+  const dx=ox+(b.door.x-b.x)*TILE, dy=B-TILE;
+  px(dx-3,dy-8,22,24,HSP.trim); px(dx-2,dy-7,20,23,HSP.redD); px(dx+7,dy-7,2,23,HSP.trim);
+  for(const s of [0,10]){ for(let i=0;i<9;i++){ px(dx-1+s+i,dy-6+Math.round(i*2.4),2,2,HSP.trim); px(dx+7+s-i,dy-6+Math.round(i*2.4),2,2,HSP.trim); } }
+  px(dx-3,dy-10,22,2,'#5a5a5a');                                                                                     // the door track
+  _hsWin(ox+W-22,wallTop+8,10,9,false,false); px(ox+W-23,wallTop+7,12,1,HSP.trim); px(ox+W-23,wallTop+17,12,1,HSP.trim);
+  px(ox+W-26,B-8,6,6,HSP.hayD); px(ox+W-26,B-8,6,2,HSP.hayL);                                                         // a bale by the wall
+}
+// the caravan bazaar: a striped pavilion of the travelling merchants, its pennants flying
+function _hsBazaar(b,ox,oy){
+  const W=b.w*TILE, H=b.h*TILE, B=oy+H, wallTop=oy+30, t=_hsT(), n=_hsNight();
+  _hsShadow(ox,B,W);
+  const rC='#c8443a', rL='#e06a54', cr='#f2e6c8', crD='#d6c6a2';
+  // canvas walls, striped
+  for(let xx=0; xx<W-4; xx+=6){ px(ox+2+xx,wallTop,6,B-wallTop-2,(xx/6)%2?cr:rC); px(ox+2+xx,wallTop,1,B-wallTop-2,(xx/6)%2?'#fff6e0':rL); }
+  px(ox+2,B-3,W-4,3,'#8a6a44');
+  // the twin peaks of the canopy
+  for(const [cx,hw] of [[ox+22,22],[ox+W-22,22]]){ const top=oy+4;
+    for(let y=top;y<wallTop+2;y++){ const k=(y-top)/(wallTop+2-top), half=Math.round(4+k*hw);
+      for(let xx=-half; xx<half; xx+=4){ px(cx+xx,y,Math.min(4,half-xx),1, (((xx+64)>>2)%2)?cr:rC); } }
+    px(cx-1,top-10,2,12,HSP.timberD);
+    const fl=Math.sin(t*4+cx)*2; px(cx+1,top-10,6+Math.round(fl),3,cx<ox+W/2?'#3a6ac8':'#e0b84a'); px(cx+1,top-8,4+Math.round(fl*0.6),2,cx<ox+W/2?'#3a6ac8':'#e0b84a'); }
+  // the scalloped valance
+  for(let xx=ox; xx<ox+W; xx+=8){ ctx.fillStyle=((xx-ox)/8)%2?cr:rC; ctx.beginPath(); ctx.arc(xx+4,wallTop+2,4,0,Math.PI); ctx.fill(); px(xx,wallTop-1,8,3,((xx-ox)/8)%2?cr:rC); }
+  px(ox,wallTop-1,W,1,'#8a2a22');
+  // the door flap tied back on a warm, lamp-lit inside
+  const dx=ox+(b.door.x-b.x)*TILE, dy=B-TILE;
+  px(dx+1,dy-10,14,26,'#3a2418'); px(dx+2,dy-9,12,25,'#6a3a22');
+  { const f=0.8+0.2*Math.sin(t*6); px(dx+7,dy-8,2,3,HSP.OL); px(dx+6,dy-5,4,4,n?'#ffcf6a':'#e0a84a'); const g=ctx.createRadialGradient(dx+8,dy-3,0,dx+8,dy-3,14*f); g.addColorStop(0,'rgba(255,190,90,0.45)'); g.addColorStop(1,'rgba(255,190,90,0)'); ctx.fillStyle=g; ctx.fillRect(dx-6,dy-17,28,28); }
+  px(dx+4,dy+4,8,3,'#b8843a'); px(dx+5,dy+3,2,2,'#e0b84a'); px(dx+9,dy+2,2,3,'#5a8ac8');                             // the wares within
+  for(const [fx,dir] of [[dx-2,1],[dx+14,-1]]){ for(let i=0;i<10;i++) px(fx+(dir>0?0:-0)+Math.round(i*0.3*dir),dy-10+i*2,4,2,i%2?cr:rC); px(fx,dy+2,4,2,'#e0b84a'); }   // the flaps, a gold tie on each
+  // a rolled rug, pots and a chest outside
+  px(ox+4,B-10,14,6,'#7a3a5a'); px(ox+4,B-10,14,1,'#9a5a7a'); for(let i=0;i<14;i+=3) px(ox+4+i,B-8,1,3,'#e0b84a'); px(ox+3,B-10,2,6,'#5a2a42');
+  px(ox+W-18,B-12,7,8,'#b86a3a'); px(ox+W-17,B-13,5,1,'#b86a3a'); px(ox+W-17,B-11,2,5,'#d8884a');
+  px(ox+W-10,B-9,7,6,'#3a6a8a'); px(ox+W-9,B-10,5,1,'#3a6a8a'); px(ox+W-9,B-8,2,3,'#5a8aaa');
+  // bunting from peak to peak
+  for(let i=0;i<9;i++){ const bx=ox+24+i*(W-48)/8, by=oy+6+Math.round(Math.sin(i/8*Math.PI)*6); px(bx-1,by,3,3,['#3a6ac8','#e0b84a','#4a9a4a','#e84a3a'][i%4]); px(bx,by+3,1,1,['#3a6ac8','#e0b84a','#4a9a4a','#e84a3a'][i%4]); }
+}
+function drawHomesteadBuilding(b,ox,oy){
+  switch(b.id){
+    case 'home_house': _hsHouse(b,ox,oy); return true;
+    case 'home_barn': _hsBarn(b,ox,oy); return true;
+    case 'dh_shop': _hsBazaar(b,ox,oy); return true;
+  }
+  return false;
+}
+
+// ── the props ──
+function _hsShade(x,y,w){ ctx.fillStyle='rgba(20,30,10,0.26)'; ctx.beginPath(); ctx.ellipse(x,y,w,2.2,0,0,7); ctx.fill(); }
+function drawHomesteadDecor(d,x,y){
+  if(d.hs) return false;                                     // the knight's own decorations keep their own art
+  const t=_hsT(), W=(d.w||1)*TILE, n=_hsNight();
+  switch(d.kind){
+    case 'farmStand': { // the produce stand: crates of the harvest under a green-and-cream awning
+      y+=W-18;
+      _hsShade(x+W/2,y+15,W/2);
+      px(x+2,y+6,W-4,9,HSP.plank); px(x+2,y+6,W-4,1,HSP.plankL); px(x+2,y+10,W-4,1,HSP.plankD); px(x+3,y+14,2,2,HSP.plankD); px(x+W-5,y+14,2,2,HSP.plankD);
+      const crate=(cx,c1,c2)=>{ px(cx,y+3,8,5,HSP.timber); for(let i=0;i<4;i++) px(cx+1+i*2,y+2+(i%2),2,2,i%2?c2:c1); };
+      crate(x+3,'#d8323a','#e84a4a'); crate(x+12,'#e8902a','#f4a840'); crate(x+21,HSP.hay,HSP.hayL);
+      px(x+1,y-10,2,17,HSP.timberD); px(x+W-3,y-10,2,17,HSP.timberD);
+      for(let i=0;i<W;i+=4){ px(x+i,y-12,4,5,(i>>2)%2?'#f2ead8':'#4a8a4a'); ctx.fillStyle=(i>>2)%2?'#f2ead8':'#4a8a4a'; ctx.beginPath(); ctx.arc(x+i+2,y-7,2,0,Math.PI); ctx.fill(); }
+      px(x+W/2-4,y+8,8,5,'#2a2a2a'); px(x+W/2-3,y+9,2,1,'#f2ead8'); px(x+W/2,y+11,2,1,'#f2ead8');   // the chalk price board
+      return true; }
+    case 'scarecrow': { // burlap head, straw hat, patched coat — and a crow that won't be scared
+      _hsShade(x+8,y+15,4);
+      px(x+7,y-2,2,17,HSP.timberD); px(x+1,y+3,14,2,HSP.timber);
+      px(x+4,y+3,8,8,'#6a5aa0'); px(x+4,y+3,8,1,'#8a7ac0'); px(x+6,y+6,3,3,'#c8443a');                                    // the patched coat
+      px(x+1,y+5,2,2,HSP.hay); px(x+13,y+5,2,2,HSP.hay); px(x+6,y+11,4,2,HSP.hay);                                        // straw at the cuffs
+      px(x+5,y-4,6,7,'#d8b880'); px(x+6,y-2,1,1,HSP.OL); px(x+9,y-2,1,1,HSP.OL); px(x+6,y+1,4,1,'#8a6a40');            // the burlap face, stitched smile
+      px(x+2,y-5,12,2,'#c8a050'); px(x+5,y-8,6,4,'#c8a050'); px(x+5,y-6,6,1,'#c8443a');                                  // the straw hat
+      { const hop=(Math.floor(t*0.7+d.x)%5===0)?Math.round(Math.abs(Math.sin(t*9))*3):0, cx=x+(d.x%2?12:1);
+        px(cx,y-1-hop,4,3,'#1e1e26'); px(cx+(d.x%2?3:-1),y-2-hop,2,2,'#1e1e26'); px(cx+(d.x%2?5:-2),y-1-hop,1,1,'#e0b84a'); if(hop) px(cx-1,y-2-hop,6,1,'#2a2a34'); }
+      return true; }
+    case 'haystack': { // a golden rick on its two-tile stance, thatched against the rain, a pitchfork stuck in it
+      const B=y+W; _hsShade(x+W/2,B-2,W/2);
+      ctx.fillStyle=HSP.hayD; ctx.beginPath(); ctx.ellipse(x+W/2,B-8,W/2-1,7,0,0,7); ctx.fill();
+      ctx.fillStyle=HSP.hay; ctx.beginPath(); ctx.ellipse(x+W/2,B-12,W/2-3,16,0,Math.PI,0); ctx.fill(); ctx.fillRect(x+3,B-12,W-6,7);
+      ctx.fillStyle=HSP.thatchD; ctx.beginPath(); ctx.ellipse(x+W/2,B-22,W/2-8,8,0,Math.PI,0); ctx.fill(); px(x+W/2-1,B-31,2,3,HSP.thatchDD);
+      for(let i=0;i<12;i++){ const k=_hsHash(d.x,i,9); px(x+4+(k%(W-8)),B-24+((k>>>5)%16),1,3,HSP.hayL); }
+      for(const r of [B-17,B-10]) px(x+4,r,W-8,1,HSP.hayD); px(x+5,B-6,W-10,1,'#8a6a2a');
+      px(x+W-8,B-26,1,16,HSP.timber); px(x+W-10,B-28,5,1,'#8a8a8a'); for(const f of [0,2,4]) px(x+W-10+f,B-30,1,3,'#8a8a8a');
+      return true; }
+    case 'planter': { // a half-barrel of sunflowers by the house
+      _hsShade(x+8,y+15,5);
+      px(x+3,y+8,10,7,HSP.timber); px(x+3,y+9,10,1,'#3a3a3a'); px(x+3,y+13,10,1,'#3a3a3a'); px(x+4,y+8,2,7,HSP.timberL); px(x+3,y+7,10,2,'#4a7a3a');
+      for(const [fx,fh] of [[5,10],[9,13],[12,8]]){ const sw=Math.round(Math.sin(t*1.1+fx+d.x)*0.8); px(x+fx,y+8-fh,1,fh,'#3f7a3a'); px(x+fx+1,y+5-fh*0.5,2,1,'#4f9a48');
+        px(x+fx-2+sw,y+5-fh,5,5,'#f4c430'); px(x+fx-1+sw,y+6-fh,3,3,'#7a4a1a'); }
+      return true; }
+    case 'bucket': { // the angler's corner: a bucket of the day's catch, a rod on a forked stick, a creel
+      _hsShade(x+8,y+15,6);
+      px(x+2,y+8,7,7,'#8a6a4a'); px(x+2,y+8,7,1,'#a8885a'); px(x+2,y+11,7,1,'#5a4a3a'); px(x+3,y+9,5,1,'#4a7aa8');
+      if(Math.sin(t*2+d.x)>0.6) px(x+4,y+7,3,2,'#c8d0d8');                                                                // a fish flips its tail
+      px(x+10,y+5,1,10,HSP.timberD); px(x+9,y+5,1,2,HSP.timberD); px(x+11,y+5,1,2,HSP.timberD);
+      for(let i=0;i<10;i++) px(x+10+i,y+5-Math.round(i*0.9),1,1,'#7a5a30'); px(x+19,y-4,1,6,'#d8e0e8');
+      px(x+11,y+11,5,4,'#b8944a'); px(x+11,y+11,5,1,'#d0ac60');
+      return true; }
+    case 'haycart': { // the hay wagon: high sides, heaped hay, big spoked wheels
+      y+=W-18; ctx.fillStyle=HSP.hay; ctx.beginPath(); ctx.ellipse(x+W/2,y+1,W/2-4,12,0,Math.PI,0); ctx.fill();
+      _hsShade(x+W/2,y+15,W/2);
+      px(x+2,y+3,W-4,8,HSP.plank); px(x+2,y+3,W-4,1,HSP.plankL); for(let i=4;i<W-2;i+=6) px(x+i,y+3,1,8,HSP.plankD);
+      ctx.fillStyle=HSP.hay; ctx.beginPath(); ctx.ellipse(x+W/2,y+3,W/2-3,6,0,Math.PI,0); ctx.fill(); px(x+4,y+1,W-8,3,HSP.hayL);
+      for(let i=0;i<6;i++){ const k=_hsHash(d.x,i,11); px(x+4+(k%(W-8)),y-3+((k>>>5)%4),1,3,HSP.hayD); }
+      for(const wx of [x+7,x+W-7]){ ctx.fillStyle=HSP.timberD; ctx.beginPath(); ctx.arc(wx,y+11,4.5,0,7); ctx.fill(); ctx.fillStyle=HSP.plank; ctx.beginPath(); ctx.arc(wx,y+11,3,0,7); ctx.fill();
+        px(wx-3,y+11,7,1,HSP.timberD); px(wx,y+8,1,7,HSP.timberD); px(wx-1,y+10,3,3,HSP.timberD); }
+      px(x-4,y+8,7,1,HSP.timber);                                                                                         // the shaft
+      return true; }
+    case 'hsWell': { // the well: a fieldstone ring under a little thatch, the bucket on its rope
+      _hsShade(x+8,y+15,7);
+      ctx.fillStyle=HSP.stoneD; ctx.beginPath(); ctx.ellipse(x+8,y+10,7,4.5,0,0,7); ctx.fill(); px(x+1,y+8,14,6,HSP.stone);
+      for(let i=0;i<4;i++) px(x+2+i*3+(i%2),y+9+(i%2)*2,3,2,HSP.stoneL); ctx.fillStyle='#24303a'; ctx.beginPath(); ctx.ellipse(x+8,y+8,5,2.5,0,0,7); ctx.fill();
+      px(x+1,y-6,2,15,HSP.timber); px(x+13,y-6,2,15,HSP.timber); px(x+2,y-3,12,1,HSP.timberD);
+      for(let i=0;i<5;i++) px(x-1+i,y-10+i,18-i*2,1,i<1?HSP.thatchL:HSP.thatch); px(x-2,y-6,20,2,HSP.thatchDD);
+      const sw=Math.round(Math.sin(t*0.9)*1); px(x+8+sw,y-2,1,5,'#c8b080'); px(x+6+sw,y+3,5,4,'#7a5a3a'); px(x+6+sw,y+3,5,1,'#a8885a');
+      return true; }
+    case 'hsSkep': { // a straw beehive skep on its stand, the bees about their business
+      _hsShade(x+8,y+15,5);
+      px(x+3,y+11,10,2,HSP.timber); px(x+4,y+13,2,2,HSP.timberD); px(x+10,y+13,2,2,HSP.timberD);
+      for(let i=0;i<5;i++){ const w=10-Math.round(i*i*0.35); px(x+8-w/2,y+9-i*2,w,2,i%2?HSP.hayD:HSP.hay); px(x+8-w/2,y+9-i*2,w,1,HSP.hayL); }
+      px(x+7,y+9,2,2,'#3a2418');
+      if(!n) for(let i=0;i<4;i++){ const a=t*2.2+i*1.7+d.x, bx=x+8+Math.cos(a)*7+Math.sin(a*2.3)*3, by=y+3+Math.sin(a*1.4)*5; px(Math.round(bx),Math.round(by),2,1,'#f4c430'); px(Math.round(bx),Math.round(by)-1,1,1,'#ffffff'); }
+      return true; }
+    case 'hsWoodpile': { // split logs stacked under a little lean-to, the axe in the block
+      _hsShade(x+8,y+15,7);
+      px(x+1,y-2,14,2,HSP.shingD); px(x+1,y-2,1,16,HSP.timberD); px(x+14,y-2,1,16,HSP.timberD);
+      for(let r=0;r<3;r++) for(let c=0;c<3;c++){ const lx=x+2+c*4+(r%2)*2-(r%2?1:0), ly=y+1+r*4; ctx.fillStyle='#8a5a32'; ctx.beginPath(); ctx.arc(lx+2,ly+2,2,0,7); ctx.fill(); px(lx+1,ly+1,2,2,'#c8a070'); }
+      px(x+3,y+13,7,3,'#7a5a3a'); px(x+3,y+13,7,1,'#a88060'); px(x+8,y+9,1,5,HSP.timber); px(x+7,y+9,3,2,'#9a9aa2');
+      return true; }
+    case 'hsCoop': { // the hen-house: red boards, a little ramp, a nest of eggs in the hatch
+      _hsShade(x+8,y+15,7);
+      px(x+2,y+3,12,9,HSP.red); for(let i=4;i<14;i+=3) px(x+i,y+3,1,9,HSP.redD); px(x+2,y+3,12,1,HSP.redL);
+      for(let i=0;i<5;i++) px(x+i,y-1+i*0.8,16-i*2,1,i<1?HSP.shingL:HSP.shing); px(x,y+2,16,2,HSP.shingD);
+      px(x+6,y+6,4,5,'#2a1a10'); px(x+5,y+11,6,1,HSP.plank); for(let i=0;i<4;i++) px(x+6+i,y+12+i*0.5,2,1,HSP.plank);
+      px(x+3,y+12,2,3,HSP.timberD); px(x+11,y+12,2,3,HSP.timberD); px(x+10,y+5,3,2,'#f2ead8');
+      return true; }
+  }
+  return false;
+}
+
+// ── life about the farm: hens, ducks on the pond, fireflies at night ──
+const HS_HENS=[[10.4,152.4,0],[12.2,152.8,1],[9.6,153.4,2],[14.4,152.2,3],[11.6,150.6,4]];
+function _hsHen(X,Y,face,peck,c){ px(X-3,Y-5,7,5,c); px(X-3,Y-5,7,1,'#ffffff'); px(X+(face>0?2:-4),Y-7-(peck?-3:0),3,3,c); px(X+(face>0?3:-3),Y-8-(peck?-3:0),1,1,'#d8323a');
+  px(X+(face>0?5:-5),Y-6-(peck?-3:0),1,1,'#e0a030'); px(X+(face>0?-4:4),Y-6,2,2,c); px(X-1,Y,1,2,'#e0a030'); px(X+1,Y,1,2,'#e0a030'); px(X+(face>0?3:-3),Y-6-(peck?-3:0),1,1,HSP.OL); }
+function homesteadObjs(objs,camX,camY){
+  if(50*TILE<camX || 6*TILE>camX+VW || 192*TILE<camY || 116*TILE>camY+VH) return;
+  const t=_hsT(), n=_hsNight();
+  // the hens, scratching about the coop (they go in at night)
+  if(!n) HS_HENS.forEach(([hx,hy,i])=>{ const a=t*0.35+i*2.1, X=(hx+Math.sin(a)*0.9+Math.sin(a*2.7)*0.25)*TILE, Y=(hy+Math.cos(a*0.8)*0.5)*TILE, face=Math.cos(a)>0?1:-1, peck=Math.sin(t*3+i*1.3)>0.6;
+    objs.push({ sy:Y/TILE, draw:()=>{ ctx.fillStyle='rgba(20,30,10,.22)'; ctx.beginPath(); ctx.ellipse(X-camX,Y-camY+1,4,1.5,0,0,7); ctx.fill(); _hsHen(Math.round(X-camX),Math.round(Y-camY),face,peck,i===4?'#a8582a':'#f2ead8'); } }); });
+  // the ducks, a mother and her ducklings in a line, round and round the pond
+  for(let i=0;i<4;i++){ const a=t*0.12-i*0.3, X=(40+Math.cos(a)*4.4)*TILE, Y=(169.6+Math.sin(a)*2.4)*TILE, face=-Math.sin(a)>0?1:-1, big=i===0, bob=Math.round(Math.sin(t*3+i));
+    objs.push({ sy:Y/TILE, draw:()=>{ const x=Math.round(X-camX), y=Math.round(Y-camY)+bob;
+      ctx.globalAlpha=0.5; px(x-(big?6:4),y+2,big?12:8,1,'#d8eef6'); ctx.globalAlpha=1;
+      if(big){ px(x-4,y-3,9,5,'#8a6a4a'); px(x-4,y-3,9,1,'#a8885a'); px(x+(face>0?3:-6),y-7,4,4,'#2a6a3a'); px(x+(face>0?6:-8),y-5,3,1,'#e0a030'); px(x+(face>0?4:-5),y-6,1,1,HSP.OL); px(x+(face>0?3:-6),y-3,4,1,'#ffffff'); }
+      else { px(x-2,y-2,5,4,'#f4d870'); px(x+(face>0?1:-3),y-4,3,3,'#f4d870'); px(x+(face>0?4:-4),y-3,1,1,'#e0a030'); } } }); }
+}
+// ── after the night tint: the farm's lights, and the fireflies (drawn over the dark, so they glow) ──
+function _hsDark(){ const f=dayFrac(); const d=f>=0.5?f-0.875:0.25-f; return Math.max(0,Math.min(1,(d+0.02)/0.04)); }   // 0 by day, 1 at night, soft at dusk and dawn
+function homesteadNightGlow(camX,camY){
+  if(50*TILE<camX || 6*TILE>camX+VW || 192*TILE<camY || 116*TILE>camY+VH) return;
+  const k=_hsDark(); if(k<=0) return;
+  const t=_hsT(), spots=[];
+  for(const b of buildings){ const ox=b.x*TILE, oy=b.y*TILE, W=b.w*TILE, H=b.h*TILE, dx=(b.door.x)*TILE, dy=oy+H-TILE;
+    if(b.id==='home_house'){ for(const wx of [12,30,W-40,W-22]){ if(Math.abs(ox+wx+5-(dx+8))<16) continue; spots.push([ox+wx+5,oy+60,16]); }
+      spots.push([ox+15,oy+43,12],[ox+W-17,oy+43,12],[ox+26,oy+23,12],[ox+W-26,oy+23,12],[dx+20,dy-2,30]); }
+    else if(b.id==='home_barn') spots.push([ox+W-17,oy+42,14]);
+    else if(b.id==='dh_shop') spots.push([dx+8,dy-3,26]); }
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  for(const [x,y,r] of spots){ const X=x-camX, Y=y-camY, R=r*(0.92+0.08*Math.sin(t*5+x)); if(X<-R||Y<-R||X>VW+R||Y>VH+R) continue;
+    const g=ctx.createRadialGradient(X,Y,0,X,Y,R); g.addColorStop(0,`rgba(255,196,110,${0.42*k})`); g.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=g; ctx.fillRect(X-R,Y-R,R*2,R*2); }
+  for(let i=0;i<40;i++){ const a=t*0.4+i*0.9, fx=(9+((i*7.3)%36)+Math.cos(a)*0.6)*TILE-camX, fy=(122+((i*13.7)%52)+Math.sin(a*1.3)*0.5)*TILE-camY;   // fireflies
+    if(fx<-6||fy<-6||fx>VW+6||fy>VH+6) continue; const on=Math.sin(t*2.5+i*1.9); if(on<0.2) continue;
+    ctx.globalAlpha=on*k; const g=ctx.createRadialGradient(fx,fy,0,fx,fy,6); g.addColorStop(0,'rgba(220,255,130,0.8)'); g.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=g; ctx.fillRect(fx-6,fy-6,12,12);
+    ctx.fillStyle='#fbffc8'; ctx.fillRect(Math.round(fx),Math.round(fy),1,1); }
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════════════════════════
+//  ✒ THE CHARACTER OUTLINE (2026-10-01 sprite upgrade, step 1)
+//  Zak: "more detail and more professional looking", the same size. Every character —
+//  the knight in every livery and form, the townsfolk, named folk, the court, the demons,
+//  the pets and the steeds — is drawn into a small offscreen canvas and given one crisp dark
+//  outline round its whole silhouette, so the cast reads cleanly on any ground and looks like
+//  one set. No pixel read-back: the outline is the sprite drawn four times a pixel out, filled
+//  dark (source-in), with the sprite on top. Same anchor, same footprint; the caller's alpha
+//  and transform still apply, because the finished sprite is blitted through them.
+//  (This is why `ctx` is a `let`: the draw is pointed at the offscreen canvas for the moment.)
+// ════════════════════════════════════════════════════════════════
+const SPR_OUTLINE = '#120c18';
+const _SPR = { pad:20, size:60, s:null, o:null, sg:null, og:null, depth:0, on:true };
+function _sprPolish(raw, self, args){
+  if(!_SPR.on || _SPR.depth>0 || typeof document==='undefined') return raw.apply(self, args);   // already inside one: draw straight through
+  if(!_SPR.s){ for(const k of ['s','o']){ const c=document.createElement('canvas'); c.width=_SPR.size; c.height=_SPR.size; _SPR[k]=c; _SPR[k+'g']=c.getContext('2d'); } }
+  const x=+args[0], y=+args[1]; if(!isFinite(x)||!isFinite(y)) return raw.apply(self, args);
+  const P=_SPR.pad, ix=Math.floor(x), iy=Math.floor(y), sg=_SPR.sg, og=_SPR.og, Z=_SPR.size, main=ctx;
+  sg.setTransform(1,0,0,1,0,0); sg.globalAlpha=1; sg.globalCompositeOperation='source-over'; sg.clearRect(0,0,Z,Z); sg.imageSmoothingEnabled=false;
+  const a2=Array.prototype.slice.call(args); a2[0]=P+(x-ix); a2[1]=P+(y-iy);
+  let r; _SPR.depth++; ctx=sg;
+  try{ r=raw.apply(self, a2); } finally{ ctx=main; _SPR.depth--; }
+  og.setTransform(1,0,0,1,0,0); og.globalAlpha=1; og.globalCompositeOperation='source-over'; og.clearRect(0,0,Z,Z); og.imageSmoothingEnabled=false;
+  og.drawImage(_SPR.s,-1,0); og.drawImage(_SPR.s,1,0); og.drawImage(_SPR.s,0,-1); og.drawImage(_SPR.s,0,1);
+  og.globalCompositeOperation='source-in'; og.fillStyle=SPR_OUTLINE; og.fillRect(0,0,Z,Z);
+  og.globalCompositeOperation='source-over'; og.drawImage(_SPR.s,0,0);
+  const sm=main.imageSmoothingEnabled; main.imageSmoothingEnabled=false; main.drawImage(_SPR.o, ix-P, iy-P); main.imageSmoothingEnabled=sm;
+  return r;
+}
+// the characters that wear it (each keeps its own arguments; x,y first)
+const SPR_POLISHED = ['drawKnight','drawVillager','drawNpc','drawLookNpc','drawDemon','drawRoyalGuard','drawTrumpeter','drawKingLuminar','drawKeepKnight'];
+const _sprRaw = {};
+(function sprOutlines(){
+  const wrap=(raw)=>function(){ return _sprPolish(raw, this, arguments); };
+  if(typeof drawKnight==='function'){ _sprRaw.drawKnight=drawKnight; drawKnight=wrap(_sprRaw.drawKnight); }
+  if(typeof drawVillager==='function'){ _sprRaw.drawVillager=drawVillager; drawVillager=wrap(_sprRaw.drawVillager); }
+  if(typeof drawNpc==='function'){ _sprRaw.drawNpc=drawNpc; drawNpc=wrap(_sprRaw.drawNpc); }
+  if(typeof drawLookNpc==='function'){ _sprRaw.drawLookNpc=drawLookNpc; drawLookNpc=wrap(_sprRaw.drawLookNpc); }
+  if(typeof drawDemon==='function'){ _sprRaw.drawDemon=drawDemon; drawDemon=wrap(_sprRaw.drawDemon); }
+  if(typeof drawRoyalGuard==='function'){ _sprRaw.drawRoyalGuard=drawRoyalGuard; drawRoyalGuard=wrap(_sprRaw.drawRoyalGuard); }
+  if(typeof drawTrumpeter==='function'){ _sprRaw.drawTrumpeter=drawTrumpeter; drawTrumpeter=wrap(_sprRaw.drawTrumpeter); }
+  if(typeof drawKingLuminar==='function'){ _sprRaw.drawKingLuminar=drawKingLuminar; drawKingLuminar=wrap(_sprRaw.drawKingLuminar); }
+  // pets and steeds are left out for now: the pet-look stylist bakes them into its own canvas (see suite/petlooks.js);
+  // their outline goes in with their own pass (sprite upgrade step 2, group 6)
+  if(typeof drawKeepKnight==='function'){ _sprRaw.drawKeepKnight=drawKeepKnight; drawKeepKnight=wrap(_sprRaw.drawKeepKnight); }
+})();
+
 function drawTile(t,x,y,tx,ty){
   // ── THE HOMESTEAD FENCE AND GATE ──
   if(t===T_FENCE || t===T_GATE){
@@ -27372,6 +28541,9 @@ function drawTile(t,x,y,tx,ty){
   if(place.kind==='overworld' && afAt(tx,ty) && drawAshfieldTile(t,x,y,tx,ty)) return;   // 🌾 Ashfield's fields, basalt and lava
   if(place.kind==='overworld' && cpAt(tx,ty) && drawCrystalpeakTile(t,x,y,tx,ty)) return;   // 💎 Crystalpeak's snow and healing spring
   if(place.kind==='overworld' && dhAt(tx,ty) && drawDusthavenTile(t,x,y,tx,ty)) return;   // 🐪 Dusthaven's streets, sand and adobe walls
+  if(place.kind==='overworld' && hsAt(tx,ty) && drawHomesteadTile(t,x,y,tx,ty)) return;   // 🌾 the Homestead's meadow, fields, corral and creek
+  if(place.kind==='overworld' && drawOverworldTile(t,x,y,tx,ty)) return;   // 🌿 the open country between the towns
+  if(place.kind==='interior' && INTERIORS[place.id] && INTERIORS[place.id].theme==='sanctuary' && drawSanctuaryTile(t,x,y,tx,ty)) return;   // ⛪ each town's sanctuary
   // ── INTERIOR FURNISHING PASS (v1): non-sanctuary interiors render timber walls,
   //    plank floors, merged rugs, and the furniture set. Everything it doesn't
   //    handle (doors, stairs) falls through to the cases below unchanged.
@@ -28310,6 +29482,7 @@ function drawBuilding(b, ox, oy){
   if(place.kind==='overworld' && afAt(b.x,b.y) && drawAshfieldBuilding(b,ox,oy)) return;   // 🌾 Ashfield's forge, inn, shelters and chapel
   if(place.kind==='overworld' && _cpBox(b.x,b.y) && drawCrystalpeakBuilding(b,ox,oy)) return;   // 💎 Crystalpeak's cathedral and snowbound houses
   if(place.kind==='overworld' && dhAt(b.x,b.y) && drawDusthavenBuilding(b,ox,oy)) return;   // 🐪 Dusthaven's bazaar, inn, dwellings and mission
+  if(place.kind==='overworld' && hsAt(b.x,b.y) && drawHomesteadBuilding(b,ox,oy)) return;   // 🌾 the farmhouse, the barn and the bazaar
   const W=b.w*TILE, H=b.h*TILE;
   const th=TOWN_THEMES[townOf(b)]||{};
   const pal=Object.assign({}, BSTYLE[b.style]||BSTYLE.house, th.pal||{});
@@ -31405,6 +32578,7 @@ function drawKeepThroneOverlay(camX, camY){
 }
 function drawSanctuaryOverlay(camX, camY){
   const it=INTERIORS[place.id]; if(!it||it.theme!=='sanctuary') return;
+  if(sanctTown()>=0){ sanctuaryLight(camX,camY); return; }   // ⛪ the town's own sanctuary is drawn with the tiles; here, only its light
   const f=it.floors[0], G=f.g, W=f.w, H=f.h, T=performance.now()/1000;
   const P=(gx,gy,ox,oy,w,h,c)=>{ px(Math.round(gx*TILE-camX)+ox, Math.round(gy*TILE-camY)+oy, w,h,c); };
   // window slots on the two long walls (skip corners), themed in a fixed cycle
@@ -31869,6 +33043,7 @@ function updateThroneScene(dt){
     if(p.y > THALL.H*TILE){ p.y=-4; p.x=Math.random()*THALL.W*TILE; } }
 }
 function drawThroneScene(camX, camY, t, quiet){
+  if(typeof drawThroneHall==='function') return drawThroneHall(camX, camY, t, quiet);   // 👑 the throne hall, redrawn
   const W=THALL.W, H=THALL.H, cx=THALL.cx;
   const sx=(tx)=>tx*TILE-camX, sy=(ty)=>ty*TILE-camY;
   const P=(a,b,w,h,c)=>px(Math.round(a),Math.round(b),w,h,c);
@@ -32008,16 +33183,19 @@ function buildKeepGrid(){
   }}
   keepGrid=g;
 }
+// the doorstep of the Stormgate Keep, wherever the capital's layout puts it (was a fixed 167,203 —
+// inside the cathedral since the grand capital, 2026-10-01)
+function keepStep(){ const b=buildings.find(b=>b.id==='sg_keep'); return b ? { x:b.door.x*TILE, y:(b.door.y+1)*TILE } : { x:167*TILE, y:203*TILE }; }
 function enterKeep(b){
   if(!keepGrid) buildKeepGrid();
-  returnStack.push({ x:167*TILE, y:203*TILE, dir:'down' });
+  { const s=keepStep(); returnStack.push({ x:s.x, y:s.y, dir:'down' }); }
   place={kind:'keep'};
   player.mounted=false; player.boating=false; player.driving=false; player.moving=false;
   player.x=THALL.cx*TILE; player.y=(THALL.H-3)*TILE; player.dir='up';
   showBanner('👑 <b>The Throne Hall of Luminar</b><br><span style="font-size:7px">Walk up to the throne to speak with King Karl. Head back down the hall to leave.</span>', 2600);
 }
 function exitKeep(){
-  place={kind:'overworld'}; player.x=167*TILE; player.y=203*TILE; player.dir='down'; player.moving=false;
+  place={kind:'overworld'}; { const s=keepStep(); player.x=s.x; player.y=s.y; } player.dir='down'; player.moving=false;
 }
 // tournament champions who loiter in the hall once the Demon Hunt is done — each starts a keep's tourney
 const KEEP_KNIGHTS = [
@@ -32117,7 +33295,7 @@ function cutsceneSkip(){
 function endThroneCutscene(){
   cutscene.active=false; cutscene.phase='done';
   place={kind:'overworld'}; demons=[]; spawnDemons();
-  player.x=167*TILE; player.y=203*TILE; player.dir='down'; player.moving=false;   // outside the keep, in the capital
+  { const s=keepStep(); player.x=s.x; player.y=s.y; } player.dir='down'; player.moving=false;   // outside the keep, in the capital
   cutscene.fade=0;
   if(_weddingCine){                       // ★ the wedding: close the story out here
     _weddingCine=false;
@@ -32277,6 +33455,7 @@ function drawDecor(d,x,y){
   if(place.kind==='overworld' && afAt(d.x,d.y) && drawAshfieldDecor(d,x,y)) return;   // 🌾 Ashfield's altar, pillars, pits and trees
   if(place.kind==='overworld' && _cpBox(d.x,d.y) && drawCrystalpeakDecor(d,x,y)) return;   // 💎 Crystalpeak's crystal pillars, braziers, firs
   if(place.kind==='overworld' && dhAt(d.x,d.y) && drawDusthavenDecor(d,x,y)) return;   // 🐪 Dusthaven's oasis, tents, cacti and jars
+  if(place.kind==='overworld' && hsAt(d.x,d.y) && drawHomesteadDecor(d,x,y)) return;   // 🌾 the farm's stand, rick, scarecrows, well and skeps
   if(d.kind && d.kind.indexOf('mt_')===0){ drawMistralIsleDecor(d,x,y); return; }   // 🌬 Mistral Isle's holding
   if(d.kind && d.kind.indexOf('sf_')===0){ drawSunfallIsleDecor(d,x,y); return; }    // ☀ Sunfall Atoll's lighthouse and banners
   switch(d.kind){
@@ -34833,7 +36012,7 @@ bootLogo.src=BOOT_LOGO_SRC;
 const boot = { done:false, phase:'logo', t:0, cursor:0, fade:0, fin:0, fading:null, slashed:false, confirmed:false };
 const BOOT_W=240, BOOT_H=160;
 // Bumped on every export. Shown on the title screen so a cached copy is obvious.
-const BUILD_TAG='2026-10-01-hg';  // 🔥 Hellgate Citadel — the last town, and all things made new: the ten villages revamped (_legacy: '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
+const BUILD_TAG='2026-10-01-so';  // ✒ every character outlined, sprite upgrade step 1 (_legacy: '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
 
 // ── tiny Web Audio kit (game has no audio system yet; kept self-contained) ──
 let bootAC=null;
