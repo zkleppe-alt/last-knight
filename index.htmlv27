@@ -5085,452 +5085,6 @@ function drawSurf(){
 
 })(typeof window !== "undefined" ? window : this);
 
-// ════════════════════════════════════════════════════════════════
-//  🐎 THE KING'S TOURNEY — THE STEEPLECHASE (2026-10-06, tag 2026-10-07-sc)
-//  Zak: "can we revamp the horse race?", then: ride your own steed or a tourney horse; steeplechase courses; skills
-//  timed jumps, stamina, urging in rhythm and drafting; "If we can design it similar to the new boat race functions
-//  that would be rad", and "That looks amazing" to the mockup.
-//  Built like the regatta's chase race: each course is a flat world (a texture) drawn in perspective one screen row at
-//  a time from a camera behind your mount; hedges and fences stand up in 3D, horses and trees are scaled sprites.
-//  Rendered at 260×340 and scaled ×2, in a portrait 520×680 frame. It takes over the old race's entry points
-//  (racePress, raceHold, raceTick, drawRace and the `race` state); the lane-and-oval race above is _legacy.
-// ════════════════════════════════════════════════════════════════
-(function(global){
-  'use strict';
-  var TAU=Math.PI*2, BW=520, BH=680, LW=260, LH=340;
-  var VIEW={ horizon:0.34, focal:160, height:30, back:34 };
-  var PERFECT=0.06, GOOD=0.14;                     // stride timing windows, as a fraction of a stride
-  function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
-  function ang(a){ a=(a+Math.PI)%TAU; if(a<0) a+=TAU; return a-Math.PI; }
-  function cnv(w,h){ var c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
-  function mix(a,b,f){ var A=parseInt(a.slice(1),16),B=parseInt(b.slice(1),16); function c(s){ return Math.round(((A>>s)&255)*(1-f)+((B>>s)&255)*f); }
-    return '#'+((1<<24)|(c(16)<<16)|(c(8)<<8)|c(0)).toString(16).slice(1); }
-  function fmt(ms){ var s=ms/1000, mm=Math.floor(s/60), ss=(s-mm*60).toFixed(2); if(ss.length<5) ss='0'+ss; return mm+':'+ss; }
-  function hsh(a,b){ var h=(a*374761393+b*668265263)>>>0; h=(h^(h>>>13))*1274126177>>>0; return (h^(h>>>16))>>>0; }
-
-  // ── THE CARD: four steeplechases, each through its town's own country ──
-  // jumps: [fraction of the lap, kind]  hedge · rails · wall · brush (stand up) · water · ditch (lie in the turf behind a low brush)
-  var COURSES=[
-    { key:'hearthvale', name:'The Hearthvale Steeplechase', feel:'meadows and apple orchards', tier:1, laps:2, width:84, sunAng:-2.0,
-      pal:{ sky:'#5a8ac8', skyLow:'#c8e0f0', sun:'#fff2b0', hills:'#4a7a50', hillsFar:'#7aa088', meadow:'#4e9a4e', meadowA:'#6ab46a', meadowB:'#3e8a46', turf:'#8ab45a', turfEdge:'#7a9a4e', flowers:['#f4eede','#f0d040','#e87a9a'] },
-      trees:['oak','apple','oak','birch'], town:'cottages',
-      points:[[520,1660],[1080,1720],[1540,1600],[1740,1240],[1600,820],[1240,600],[860,720],[700,1060],[400,980],[300,1320]],
-      jumps:[[0.07,'hedge'],[0.20,'water'],[0.33,'rails'],[0.47,'hedge'],[0.62,'ditch'],[0.78,'hedge'],[0.90,'water']],
-      ponds:[[1180,1180,110],[600,540,70]] },
-    { key:'ironhold', name:'The Ironhold Moor Chase', feel:'stone walls on the high moor', tier:2, laps:3, width:80, sunAng:-1.2,
-      pal:{ sky:'#5a6a86', skyLow:'#b8c0cc', sun:'#f4f0d8', hills:'#4a4a5a', hillsFar:'#7a7a8a', meadow:'#5a7a4a', meadowA:'#7a6a8a', meadowB:'#4a6a3e', turf:'#7a9a5a', turfEdge:'#5e7a48', flowers:['#9a6aaa','#c8a0d0','#e8e0cf'] },
-      trees:['fir','fir','gorse','fir'], town:'keep',
-      points:[[640,1480],[1020,1560],[1380,1460],[1500,1160],[1340,880],[1100,960],[900,760],[640,720],[500,960],[540,1240]],
-      jumps:[[0.08,'wall'],[0.26,'ditch'],[0.44,'wall'],[0.62,'rails'],[0.80,'wall']], ponds:[[1060,1240,90]] },
-    { key:'dusthaven', name:'The Dusthaven Sand Mile', feel:'two long drags across the dunes', tier:3, laps:2, width:86, sunAng:0.6,
-      pal:{ sky:'#6aa0d8', skyLow:'#f0dcb0', sun:'#fff8d0', hills:'#c8a060', hillsFar:'#e0c890', meadow:'#e0c890', meadowA:'#d0b070', meadowB:'#ecd8a8', turf:'#c8a068', turfEdge:'#a88048', flowers:['#8a9a4a','#c8a040','#a86a3a'] },
-      trees:['cactus','palm','cactus','scrub'], town:'domes',
-      points:[[220,1330],[900,1420],[1580,1380],[1880,1180],[1740,860],[1100,760],[420,820],[140,1060]],
-      jumps:[[0.10,'brush'],[0.26,'water'],[0.40,'brush'],[0.60,'ditch'],[0.76,'brush'],[0.90,'water']], ponds:[[1050,1090,140]] },
-    { key:'stormgate', name:'The Stormgate Royal Park', feel:'wide and fast round the royal park', tier:4, laps:3, width:90, sunAng:-2.6,
-      pal:{ sky:'#4a7ac0', skyLow:'#d0e0f4', sun:'#fff4c0', hills:'#3e6a54', hillsFar:'#8a9ab0', meadow:'#5aa25a', meadowA:'#6ab46a', meadowB:'#4e9a52', turf:'#9ac46a', turfEdge:'#7aa450', flowers:['#2a4a9a','#d8b04a','#f4eede'] },
-      trees:['topiary','oak','banner','topiary'], town:'city',
-      points:[[620,1560],[1080,1620],[1480,1500],[1600,1160],[1440,840],[1060,760],[700,840],[500,1160]],
-      jumps:[[0.10,'hedge'],[0.30,'rails'],[0.50,'water'],[0.70,'hedge'],[0.88,'rails']], ponds:[[1050,1180,130]] }
-  ];
-  var MOUNTS=[   // the tourney's own four, to borrow
-    { id:'tempest', name:'Tempest', blurb:'swift', speed:0.90, stamina:0.50, jump:0.60, kind:'horse', coat:['#2a3448','#4a5a7a','#6a7a9a'], mane:'#1f2a40', silk:'#c82a2a', silk2:'#f4eede' },
-    { id:'ember',   name:'Ember',   blurb:'quick off the gate', speed:0.62, stamina:0.82, jump:0.70, kind:'horse', coat:['#6a2a14','#9a4528','#b85a38'], mane:'#4a1f10', silk:'#2a7a3a', silk2:'#f4d878' },
-    { id:'psalm',   name:'Psalm',   blurb:'sure over fences', speed:0.70, stamina:0.62, jump:0.96, kind:'horse', coat:['#a89878','#d8d0c0','#eee6d6'], mane:'#a89878', silk:'#d8b04a', silk2:'#f4eede' },
-    { id:'raven',   name:'Raven',   blurb:'relentless', speed:0.84, stamina:0.86, jump:0.50, kind:'horse', coat:['#1a141e','#3a3040','#4a4050'], mane:'#15101a', silk:'#6a3a9a', silk2:'#e8e0cf' }
-  ];
-  // your own steeds: each final form races in its own way
-  var STEEDS={ faithful:{ kind:'lion', speed:0.86, stamina:0.70, jump:0.74, coat:['#8a5a22','#d8a050','#f4d898'], mane:'#7a3a12', blurb:'your lion' },
-               grace:   { kind:'dove', speed:0.72, stamina:0.80, jump:1.00, coat:['#a8b0c0','#e8eef6','#ffffff'], mane:'#c8d0dc', blurb:'your great dove' },
-               steadfast:{ kind:'dragon', speed:0.66, stamina:1.00, jump:0.70, coat:['#1e5a3a','#3a8a5a','#7ac08a'], mane:'#6a4a2a', blurb:'your sea dragon' },
-               unicorn: { kind:'unicorn', speed:0.86, stamina:0.86, jump:0.86, coat:['#b8b0c0','#f2eee6','#ffffff'], mane:'#e8d8f0', blurb:'your unicorn' } };
-  function ownSteed(){
-    var p=(typeof player!=='undefined')&&player&&player.pet; if(!p || !STEEDS[p.id]) return null;
-    var forms=(typeof PETS!=='undefined'&&PETS[p.id])?PETS[p.id].forms:null, f=forms&&forms[p.form];
-    if(!f || !f.ability) return null;                                   // only a grown steed can race
-    var S=STEEDS[p.id], look=p.look||{}, coat=S.coat;
-    if(look.coat && typeof PET_LOOKS!=='undefined'){ for(var i=0;i<PET_LOOKS.coat.length;i++) if(PET_LOOKS.coat[i].id===look.coat) coat=PET_LOOKS.coat[i].ramp; }
-    return { id:'own', own:true, name:p.name||f.name, form:f.name, blurb:S.blurb, speed:S.speed, stamina:S.stamina, jump:S.jump, kind:S.kind, coat:coat, mane:S.mane,
-      back:look.back||null, head:look.head||null, neck:look.neck||null, pattern:look.pattern||null, fx:look.fx||null };
-  }
-  // each course's rivals, by pace as a fraction of the reference gallop (150): fixed, no catching up, no easing off.
-  // Set with a bot (2026-10-07): a rider who urges on the stride and jumps clean wins; one who just sits there doesn't.
-  var PACE={ 1:[0.86,0.90,0.94], 2:[0.89,0.93,0.97], 3:[0.91,0.95,0.99], 4:[0.93,0.97,1.01] };
-  var PAR={ hearthvale:56000, ironhold:62000, dusthaven:55000, stormgate:64000 };    // the record to beat until someone sets one: between a good ride and a perfect one (bot, 2026-10-07)
-
-  // ── building a course ──
-  function buildLine(spec){
-    var P=spec.points, n=P.length, line=[], i, k;
-    function cr(p0,p1,p2,p3,t){ var t2=t*t,t3=t2*t;
-      return [0.5*((2*p1[0])+(-p0[0]+p2[0])*t+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3),
-              0.5*((2*p1[1])+(-p0[1]+p2[1])*t+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3)]; }
-    for(i=0;i<n;i++){ var p0=P[(i-1+n)%n],p1=P[i],p2=P[(i+1)%n],p3=P[(i+2)%n]; for(k=0;k<24;k++) line.push(cr(p0,p1,p2,p3,k/24)); }
-    var dist=[0]; for(i=1;i<=line.length;i++){ var a=line[i-1],b=line[i%line.length]; dist.push(dist[i-1]+Math.hypot(b[0]-a[0],b[1]-a[1])); }
-    return { line:line, dist:dist, len:dist[line.length] };
-  }
-  function pointAt(C,d){ d=((d%C.len)+C.len)%C.len; var lo=0,hi=C.line.length; while(hi-lo>1){ var m=(lo+hi)>>1; if(C.dist[m]<=d) lo=m; else hi=m; }
-    var a=C.line[lo], b=C.line[(lo+1)%C.line.length], t=(d-C.dist[lo])/((C.dist[lo+1]-C.dist[lo])||1);
-    return { x:a[0]+(b[0]-a[0])*t, y:a[1]+(b[1]-a[1])*t, ang:Math.atan2(b[1]-a[1],b[0]-a[0]), i:lo }; }
-  function near(C,x,y,i0){ var N=C.line.length, best=1e18, bi=i0, bt=0, k;
-    for(k=-12;k<=24;k++){ var i=((i0+k)%N+N)%N, a=C.line[i], b=C.line[(i+1)%N], dx=b[0]-a[0], dy=b[1]-a[1], l2=dx*dx+dy*dy||1;
-      var t=clamp(((x-a[0])*dx+(y-a[1])*dy)/l2,0,1), qx=a[0]+dx*t, qy=a[1]+dy*t, d2=(x-qx)*(x-qx)+(y-qy)*(y-qy); if(d2<best){ best=d2; bi=i; bt=t; } }
-    var a2=C.line[bi], b2=C.line[(bi+1)%N], an=Math.atan2(b2[1]-a2[1],b2[0]-a2[0]);
-    return { i:bi, d:C.dist[bi]+(C.dist[bi+1]-C.dist[bi])*bt, lat:(x-a2[0])*(-Math.sin(an))+(y-a2[1])*Math.cos(an), ang:an }; }
-  function build(spec){
-    var L=buildLine(spec), line=L.line, N=line.length, S=2048, W=spec.width, tex=cnv(S,S), g=tex.getContext('2d'), pal=spec.pal, i, x, y;
-    g.fillStyle=pal.meadow; g.fillRect(0,0,S,S);                                       // the field: tufts and flowers so speed reads
-    for(y=0;y<S;y+=8) for(x=0;x<S;x+=8){ var h=hsh(x,y); if(h%5===0){ g.fillStyle=h%3?pal.meadowA:pal.meadowB; g.fillRect(x+(h>>>4)%4,y+(h>>>8)%4,3,2); }
-      if(h%97===0){ g.fillStyle=pal.flowers[(h>>>3)%pal.flowers.length]; g.fillRect(x,y,2,2); } }
-    (spec.ponds||[]).forEach(function(P){ g.fillStyle='#3a7ab4'; g.beginPath(); g.ellipse(P[0],P[1],P[2],P[2]*0.7,0,0,TAU); g.fill();
-      g.fillStyle='#5a9ad0'; g.beginPath(); g.ellipse(P[0]-P[2]*0.2,P[1]-P[2]*0.15,P[2]*0.5,P[2]*0.3,0,0,TAU); g.fill(); });
-    g.lineJoin='round'; g.lineCap='round'; g.beginPath(); line.forEach(function(p,j){ if(j) g.lineTo(p[0],p[1]); else g.moveTo(p[0],p[1]); }); g.closePath();
-    g.strokeStyle=pal.turfEdge; g.lineWidth=W+10; g.stroke(); g.strokeStyle=pal.turf; g.lineWidth=W; g.stroke();   // the course
-    for(i=0;i<N;i+=2){ if((i>>1)%4>=2) continue; var a=line[i], b=line[(i+1)%N], dx=b[0]-a[0], dy=b[1]-a[1], l=Math.hypot(dx,dy)||1, nx=-dy/l, ny=dx/l;   // mown stripes
-      g.strokeStyle='rgba(255,255,255,.07)'; g.lineWidth=l*2.2; g.beginPath(); g.moveTo(a[0]-nx*W/2,a[1]-ny*W/2); g.lineTo(a[0]+nx*W/2,a[1]+ny*W/2); g.stroke(); }
-    for(var s=-1;s<=1;s+=2){ g.strokeStyle='#f4eede'; g.lineWidth=3; g.beginPath();                                  // white rails both sides
-      for(i=0;i<=N;i++){ var p=line[i%N], q=line[(i+1)%N], ddx=q[0]-p[0], ddy=q[1]-p[1], ll=Math.hypot(ddx,ddy)||1, X=p[0]-ddy/ll*s*(W/2+3), Y=p[1]+ddx/ll*s*(W/2+3); if(i) g.lineTo(X,Y); else g.moveTo(X,Y); } g.stroke(); }
-    (function(){ var a=line[0], b=line[1], dx=b[0]-a[0], dy=b[1]-a[1], l=Math.hypot(dx,dy), nx=-dy/l, ny=dx/l, s2, r;   // start/finish, checkered
-      for(s2=-W/2;s2<W/2;s2+=6) for(r=0;r<2;r++){ g.fillStyle=((Math.floor((s2+W)/6)+r)%2)?'#1a1320':'#f4eede'; g.fillRect(Math.round(a[0]+nx*s2+dx/l*r*6),Math.round(a[1]+ny*s2+dy/l*r*6),6,6); } })();
-    var jumps=spec.jumps.map(function(J,k){ var d=J[0]*L.len, p=pointAt(L,d); return { n:k+1, d:d, kind:J[1], x:p.x, y:p.y, ang:p.ang }; });
-    jumps.forEach(function(j){ var nx=-Math.sin(j.ang), ny=Math.cos(j.ang), fx=Math.cos(j.ang), fy=Math.sin(j.ang);
-      function quad(d0,d1,col){ g.fillStyle=col; g.beginPath(); g.moveTo(j.x+fx*d0-nx*W/2,j.y+fy*d0-ny*W/2); g.lineTo(j.x+fx*d0+nx*W/2,j.y+fy*d0+ny*W/2); g.lineTo(j.x+fx*d1+nx*W/2,j.y+fy*d1+ny*W/2); g.lineTo(j.x+fx*d1-nx*W/2,j.y+fy*d1-ny*W/2); g.fill(); }
-      if(j.kind==='water'){ quad(2,22,'#3a7ab4'); quad(4,8,'#6aaae0'); }
-      if(j.kind==='ditch'){ quad(2,12,'#4a3a2a'); quad(2,4,'#2a2018'); }
-      quad(-TAKEOFF-1.5,-TAKEOFF+1.5,'rgba(255,255,255,.8)'); });                     // the take-off line: jump as you cross it
-    // trees and scenery along the course, off the turf
-    var trees=[]; for(i=0;i<N;i+=4){ var a3=line[i], b3=line[(i+1)%N], dx3=b3[0]-a3[0], dy3=b3[1]-a3[1], l3=Math.hypot(dx3,dy3)||1, nx3=-dy3/l3, ny3=dx3/l3, h3=hsh(i,7);
-      var side=(h3&1)?1:-1, off=W/2+34+(h3>>>3)%100, tx=a3[0]+nx3*side*off, ty=a3[1]+ny3*side*off, ok=true;
-      for(var j2=0;j2<N;j2+=3){ var q2=line[j2]; if(Math.hypot(q2[0]-tx,q2[1]-ty)<W/2+22){ ok=false; break; } }
-      (spec.ponds||[]).forEach(function(P){ if(Math.hypot(P[0]-tx,(P[1]-ty)/0.7)<P[2]+12) ok=false; });
-      if(ok) trees.push({ x:tx, y:ty, k:spec.trees[(h3>>>9)%spec.trees.length] }); }
-    // how tight the course turns, a little ahead: rivals ease off for a tight turn just as you must
-    var rad=[], rad2=[]; for(i=0;i<N;i++){ var A4=line[(i-2+N)%N], B4=line[i], C4=line[(i+2)%N], ab=Math.hypot(B4[0]-A4[0],B4[1]-A4[1]), bc=Math.hypot(C4[0]-B4[0],C4[1]-B4[1]), ca=Math.hypot(A4[0]-C4[0],A4[1]-C4[1]);
-      var ar=Math.abs((B4[0]-A4[0])*(C4[1]-A4[1])-(B4[1]-A4[1])*(C4[0]-A4[0]))/2; rad.push(ar<1e-6?1e6:ab*bc*ca/(4*ar)); }
-    for(i=0;i<N;i++){ var mn=1e6; for(var j3=0;j3<=6;j3++) mn=Math.min(mn,rad[(i+j3)%N]); rad2.push(mn); }
-    return { spec:spec, line:line, dist:L.dist, len:L.len, tex:tex, S:S, W:W, jumps:jumps, trees:trees, rad:rad2 };
-  }
-  var TAKEOFF=24;                                  // the take-off line sits this far before each jump
-
-  // ── sprites, drawn once at native size and stamped scaled ──
-  var SPR={};
-  function sprCanvas(key,w,h,fn){ if(SPR[key]) return SPR[key]; var c=cnv(w,h), g=c.getContext('2d'); fn(g, function(x,y,ww,hh,col){ g.fillStyle=col; g.fillRect(x,y,ww,hh); }); return (SPR[key]=c); }
-  function treeSpr(k){ return sprCanvas('t'+k,32,48,function(g,px){
-    function blob(cx,cy,rx,ry,col){ g.fillStyle=col; g.beginPath(); g.ellipse(cx,cy,rx,ry,0,0,TAU); g.fill(); }
-    if(k==='oak'||k==='apple'||k==='birch'){ px(14,30,4,18,k==='birch'?'#e8e4dc':'#5a3a22'); if(k==='birch'){ px(14,34,4,1,'#2a2a2a'); px(14,40,4,1,'#2a2a2a'); }
-      blob(16,20,14,16,'#2e6a3a'); blob(14,17,11,12,'#3e8a4a'); blob(11,12,5,5,'#5aa85a');
-      if(k==='apple'){ g.fillStyle='#d83a3a'; [[9,18],[19,14],[15,24],[21,22],[12,10]].forEach(function(p){ g.fillRect(p[0],p[1],2,2); }); } }
-    else if(k==='fir'){ px(15,38,3,10,'#4a3a22'); for(var i=0;i<4;i++){ g.fillStyle=i%2?'#1e4a2a':'#2a5a34'; g.beginPath(); g.moveTo(16,4+i*8); g.lineTo(4+i*1,22+i*7); g.lineTo(28-i*1,22+i*7); g.fill(); } px(15,4,2,3,'#3a6a44'); }
-    else if(k==='gorse'){ blob(16,40,13,8,'#3a5a2a'); blob(14,38,9,5,'#4a6a32'); g.fillStyle='#f0c840'; for(var j=0;j<10;j++) g.fillRect(6+((j*7)%20),34+((j*5)%10),2,2); }
-    else if(k==='cactus'){ px(13,16,6,32,'#4a8a4a'); px(13,16,2,32,'#6aaa5a'); px(5,24,4,10,'#4a8a4a'); px(5,30,8,4,'#4a8a4a'); px(23,20,4,10,'#4a8a4a'); px(19,26,8,4,'#4a8a4a'); px(15,12,2,4,'#e87a9a'); }
-    else if(k==='palm'){ px(15,18,3,30,'#8a6a3a'); px(15,24,3,1,'#6a4a22'); px(15,32,3,1,'#6a4a22'); for(var a=0;a<6;a++){ var an=a/6*TAU; g.strokeStyle=a%2?'#3a8a3a':'#2a6a2a'; g.lineWidth=3; g.beginPath(); g.moveTo(16,18); g.lineTo(16+Math.cos(an)*13,18+Math.sin(an)*6+4); g.stroke(); } }
-    else if(k==='scrub'){ blob(16,42,12,6,'#8a8a4a'); blob(13,40,7,4,'#a8a05a'); }
-    else if(k==='topiary'){ px(14,40,4,8,'#5a3a22'); px(10,44,12,4,'#a8846a'); blob(16,30,9,10,'#2e6a3a'); blob(16,16,6,7,'#3e8a4a'); blob(16,7,3,3,'#4a9a52'); }
-    else if(k==='banner'){ px(15,4,2,44,'#3a2414'); px(17,6,10,16,'#2a4a9a'); px(20,10,4,8,'#d8b04a'); px(17,22,10,2,'#d8b04a'); px(14,2,4,3,'#d8b04a'); } }); }
-  // a mount and rider seen from behind: 40×56, origin bottom-centre (20,52)
-  function mountRear(m, f, air, rider){
-    var key='m'+JSON.stringify([m.id,m.kind,m.coat,m.back,m.head,m.neck,m.pattern,f,air,rider&&rider.silk]);
-    return sprCanvas(key,40,56,function(g,px){
-      var cD=m.coat[0], co=m.coat[1], cL=m.coat[2], y0=air?-5:0, mane=m.mane||cD;
-      function leg(x,lift,tuck){ if(tuck){ px(x,41+y0,4,4,cD); px(x+1,45+y0,3,2,'#2a2018'); return; } px(x,40-lift,4,6,co); px(x+1,46-lift,3,4+lift,cD); px(x,50,4,2,'#2a2018'); }
-      if(m.kind==='dove'){                                                          // a great white bird: wings beating either side, the knight on its back
-        var up=f?-4:2; px(4,28+up+y0,14,5,cD); px(22,28+up+y0,14,5,cD); px(2,30+up+y0,16,4,co); px(22,30+up+y0,16,4,co); px(0,32+up+y0,6,3,cL); px(34,32+up+y0,6,3,cL);
-        px(12,24+y0,16,18,co); px(13,24+y0,5,16,cL); px(16,40+y0,8,6,cL); px(15,46+y0,10,3,cD);   // body and fanned tail
-        px(15,48,3,4,'#e8a040'); px(22,48,3,4,'#e8a040'); }
-      else if(m.kind==='dragon'){                                                   // a sea dragon: a domed shell, a ridged tail, stubby flippers
-        leg(9, f?2:0, air); leg(27, f?0:2, air);
-        px(7,26+y0,26,18,cD); px(9,24+y0,22,20,co); px(11,26+y0,6,14,cL);
-        for(var r=0;r<3;r++){ px(12+r*6,28+y0,5,4,'#6a4a2a'); px(15+r*3,34+y0,5,4,'#6a4a2a'); }
-        px(17,44+y0,6,6,co); px(18,48+y0,4,4,cD); px(19,50+y0,2,3,cD); px(18,44+y0,4,2,mane); }
-      else {                                                                        // horse, unicorn, lion: haunches either side of the tail
-        leg(12, f?3:0, air); leg(24, f?0:3, air);
-        var rows=[[14,8],[12,12],[11,14],[10,16],[10,16],[10,16],[10,16],[11,14],[12,12],[13,10],[14,8]];
-        rows.forEach(function(R,k){ px(R[0],26+k+y0,R[1],1,co); px(40-R[0]-R[1],26+k+y0,R[1],1,co); px(R[0],26+k+y0,2,1,cL); });
-        px(19,26+y0,2,12,cD);
-        if(m.pattern==='spots'||m.pattern==='dapple'||m.pattern==='patches'){ g.fillStyle=m.pattern==='patches'?cD:cL; [[13,29],[25,31],[15,34],[27,27]].forEach(function(p){ g.fillRect(p[0],p[1]+y0,m.pattern==='patches'?4:2,m.pattern==='patches'?3:2); }); }
-        if(m.pattern==='stripes'){ for(var s=0;s<4;s++){ px(11,28+s*3+y0,7,1,cD); px(22,28+s*3+y0,7,1,cD); } }
-        if(m.pattern==='stars'){ g.fillStyle='#fff8c0'; [[13,28],[26,30],[16,35],[24,35],[22,27]].forEach(function(p){ g.fillRect(p[0],p[1]+y0,1,1); }); }
-        if(m.kind==='lion'){ px(17,27+y0,6,2,cD); px(19,29+y0,2,14,cD); px(17,42+y0,6,5,mane); }   // a lion's tail ends in a dark tuft
-        else { px(18,27+y0,4,6,mane); px(17,33+y0,6,6,mane); px(16+(f?1:0),39+y0,6,4,mane); px(17+(f?2:0),43+y0,4,3,mane); } }
-      // what the steed wears on its back: the cape or the crusader cloth from the stylist; a jockey's silks on a tourney horse
-      if(m.back==='cape'){ px(8,23+y0,24,7,'#8a1f2a'); px(8,23+y0,24,1,'#d8b04a'); px(8,30+y0,3,6,'#8a1f2a'); px(29,30+y0,3,6,'#8a1f2a'); px(8,35+y0,3,1,'#d8b04a'); px(29,35+y0,3,1,'#d8b04a'); }
-      else if(m.back==='tabard'){ px(8,23+y0,24,7,'#f4eede'); px(18,23+y0,4,7,'#b03028'); px(12,25+y0,16,2,'#b03028'); px(8,30+y0,3,5,'#f4eede'); px(29,30+y0,3,5,'#f4eede'); }
-      else if(rider&&rider.silk){ px(9,24+y0,22,5,rider.silk); px(9,24+y0,22,1,rider.silk2); px(9,29+y0,3,4,rider.silk); px(28,29+y0,3,4,rider.silk); }
-      else { px(10,24+y0,20,4,'#6a3a1e'); px(10,24+y0,20,1,'#8a5a2e'); }                                 // a plain saddle
-      // the neck and head beyond the rider
-      if(m.kind==='dove'){ px(16,12+y0,8,8,co); px(17,8+y0,6,5,cL); }
-      else if(m.kind==='dragon'){ px(15,12+y0,10,7,co); px(14,8+y0,3,5,'#6a4a2a'); px(23,8+y0,3,5,'#6a4a2a'); }
-      else if(m.kind==='lion'){ px(11,8+y0,18,12,mane); px(12,9+y0,16,10,mix(mane,'#000000',.15)); px(12,6+y0,3,3,cD); px(25,6+y0,3,3,cD); }
-      else { px(14,13+y0,12,5,co); px(13,9+y0,3,5,cD); px(24,9+y0,3,5,cD); px(14,9+y0,1,2,cL); }
-      if(m.kind==='unicorn'){ px(19,1+y0,2,8,'#f4d878'); px(19,1+y0,1,8,'#fff2c8'); }
-      if(m.neck==='scarf'){ px(13,18+y0,14,2,'#c82a2a'); px(25,18+y0,2,4,'#c82a2a'); } else if(m.neck==='bell'){ px(18,18+y0,4,3,'#d8b04a'); } else if(m.neck==='pearls'){ for(var q=0;q<5;q++) px(14+q*3,18+y0,2,2,'#f4f0e8'); }
-      if(m.head==='crown'){ px(13,6+y0,4,3,'#d8b04a'); px(23,6+y0,4,3,'#d8b04a'); } else if(m.head==='flowers'){ px(13,7+y0,3,2,'#e87a9a'); px(24,7+y0,3,2,'#f4eede'); } else if(m.head==='laurel'){ px(12,8+y0,4,2,'#5a9a3a'); px(24,8+y0,4,2,'#5a9a3a'); }
-      // the rider
-      if(!rider){ px(14,14+y0,12,11,'#3b6fd4'); px(14,14+y0,4,11,'#5a8ae8'); px(13,22+y0,3,3,'#c9cdd6'); px(24,22+y0,3,3,'#c9cdd6');
-        px(16,8+y0,8,7,'#c9cdd6'); px(16,8+y0,8,1,'#eef0f4'); px(18,4+y0,3,4,'#e8452f'); px(21,2+y0,3,3,'#e8452f'); px(23,1+y0,2,2,'#c8341f'); }
-      else { px(14,15+y0,12,10,rider.silk); px(14,15+y0,12,3,rider.silk2); px(18,15+y0,4,10,rider.silk2); px(16,9+y0,8,6,'#d8a878'); px(15,8+y0,10,3,rider.silk); px(15,8+y0,10,1,rider.silk2); } }); }
-  function stamp(g,img,sx,sy,s,k){ var w=Math.max(1,Math.round(img.width*s*k)), h=Math.max(1,Math.round(img.height*s*k)); g.imageSmoothingEnabled=false; g.drawImage(img,Math.round(sx-w/2),Math.round(sy-h),w,h); }
-  var K_HORSE=0.30, K_TREE=1.1;
-
-  // ── state ──
-  global.race=null;
-  if(typeof global.raceRecords!=='object' || !global.raceRecords) global.raceRecords={};
-  var courseIdx=0;
-  function mountList(){ var o=ownSteed(); return (o?[o]:[]).concat(MOUNTS); }
-  function startRace(){ var list=mountList();
-    global.race={ v:2, phase:'select', sel:0, mounts:list, course:COURSES[courseIdx], hits:[], t:0, bank:{gold:0,item:null,placed:0,timeMs:0},
-      keys:{ left:false, right:false, urge:false, jump:false }, prev:{ urge:false, jump:false }, result:null }; }
-  function leave(){ var R=global.race, b=R?R.bank:null; var payload=b&&b.placed ? { finished:true, placed:b.placed, gold:b.gold, item:b.item, timeMs:b.timeMs } : { finished:false, placed:0, gold:0, item:null };
-    global.race=null; if(typeof global.finishRace==='function') global.finishRace(payload); }
-  function record(key){ var r=global.raceRecords[key]; return (typeof r==='number')?r:PAR[key]; }
-
-  function begin(){
-    var R=global.race; R.course=COURSES[courseIdx]; var spec=R.course, C=build(spec), m=R.mounts[R.sel], i;   // the course chosen now, not the one the picker opened on
-    var top=120+50*m.speed;                                              // a mount's flat-out gallop
-    var pace=PACE[spec.tier]||PACE[1], grid=[[-18,-20],[-18,22],[-44,-30]], meD=-44, meLane=14;
-    var riders=MOUNTS.filter(function(x){ return x.id!==m.id; }).slice(0,3);
-    var rivals=riders.map(function(h,k){ var p=pointAt(C,grid[k][0]);
-      return { mount:h, rider:{silk:h.silk, silk2:h.silk2}, prog:grid[k][0], lane0:grid[k][1], lane:grid[k][1], v:0, pace:150*pace[k], x:p.x+(-Math.sin(p.ang))*grid[k][1], y:p.y+Math.cos(p.ang)*grid[k][1], ang:p.ang,
-        finished:false, place:0, lap:1, air:0, jumpsDone:{}, stride:k*0.3 }; });
-    var p0=pointAt(C,meD);
-    R.C=C; R.mount=m; R.top=top; R.rivals=rivals; R.finishOrder=[]; R.laps=spec.laps; R.total=C.len*spec.laps; R.t=0; R.phase='countdown'; R.count=3; R.countT=0; R.camAng=p0.ang;
-    R.low=cnv(LW,LH); R.sky=null; R.fog=null; R.stats={ perfect:0, good:0, miss:0, clean:0, bad:0, hit:0, draft:0 };
-    R.P={ x:p0.x+(-Math.sin(p0.ang))*meLane, y:p0.y+Math.cos(p0.ang)*meLane, h:p0.ang, v:0, lean:0, prog:meD, idx:p0.i, lap:1, splits:[], lastSplit:0,
-      stamina:1, tired:false, sinceUrge:9, ph:0.75, lastTap:-1, air:0, stagger:0, jumpsDone:{}, nextJump:0, draft:false, callout:null, calloutT:0, calloutCol:'#f4d878', bump:0, lat:meLane, place:4, finished:false };
-  }
-  function call(P,s,col){ P.callout=s; P.calloutT=1.1; P.calloutCol=col||'#f4d878'; }
-  function strideLen(R){ return 0.62-0.08*R.mount.speed; }
-  // URGE: once per stride, as the gold mark crosses the green window
-  function urge(){ var R=global.race; if(!R||R.phase!=='race') return; var P=R.P, top=R.top;
-    var cyc=Math.floor(P.ph), f=P.ph-cyc, e=Math.min(f,1-f), tgt=f>0.5?cyc+1:cyc;
-    if(tgt===P.lastTap) return; P.lastTap=tgt; P.sinceUrge=0;
-    if(P.tired || P.stamina<0.03){ call(P,'TOO TIRED — EASE OFF','#e0563a'); return; }
-    var cost=P.draft?0.5:1;
-    if(e>GOOD){ P.v*=0.97; P.stamina=Math.max(0,P.stamina-0.03*cost); R.stats.miss++; call(P,'BROKE STRIDE','#e0563a'); }
-    else if(e<=PERFECT){ P.v=Math.min(top*1.18,P.v+top*0.15); P.stamina=Math.max(0,P.stamina-0.05*cost); R.stats.perfect++; call(P,'PERFECT STRIDE!','#fff2c8'); }
-    else { P.v=Math.min(top*1.18,P.v+top*0.10); P.stamina=Math.max(0,P.stamina-0.06*cost); R.stats.good++; call(P,'GOOD STRIDE!','#5fd36a'); }
-    if(P.stamina<=0.0001){ P.tired=true; call(P,'OUT OF BREATH!','#e0563a'); } }
-  // JUMP: as you cross the take-off line
-  function nextJumpAhead(R,P,lim){ var C=R.C, best=null, bd=1e9; C.jumps.forEach(function(j){ var lapBase=Math.floor(P.prog/C.len)*C.len, d=lapBase+j.d; if(d<P.prog-8) d+=C.len;
-      var key=j.n+':'+Math.floor((d)/C.len); if(P.jumpsDone[key]) return; var ahead=d-P.prog; if(ahead<bd && ahead<lim){ bd=ahead; best={ j:j, d:d, key:key }; } }); return best; }
-  function jump(){ var R=global.race; if(!R||R.phase!=='race') return; var P=R.P; if(P.air>0) return;
-    var J=nextJumpAhead(R,P,140), win=0.06+0.08*R.mount.jump;                      // seconds either side of the line (a sure jumper gets more); late enough and you scramble over
-    if(!J){ P.air=0.32; P.stamina=Math.max(0,P.stamina-0.02); return; }          // a hop over nothing
-    var e=((J.d-TAKEOFF)-P.prog)/Math.max(30,P.v);                             // seconds early (+) or late (−) of the line
-    P.air=0.45;
-    if(Math.abs(e)<=win*0.45){ P.jumpsDone[J.key]='clean'; P.v*=1.05; R.stats.clean++; call(P,'PERFECT JUMP!','#fff2c8'); }
-    else if(Math.abs(e)<=win){ P.jumpsDone[J.key]='clean'; R.stats.clean++; call(P,'CLEAN JUMP!','#5fd36a'); }
-    else if(e>0){ P.v*=0.8; R.stats.bad++; call(P,'TOO EARLY!','#f0a050'); }           // you land short: jump again before the fence
-    else { P.jumpsDone[J.key]='late'; P.v*=0.7; R.stats.bad++; call(P,'TOO LATE — SCRAMBLED OVER','#f0a050'); } }
-
-  function step(dt){
-    var R=global.race, C=R.C, P=R.P, top=R.top, k=R.keys, i;
-    if(R.phase==='countdown'){ R.countT+=dt; if(R.countT>=0.8){ R.countT=0; R.count--; if(R.count<=0){ R.phase='race'; call(P,'THEY\'RE OFF!','#fff2c8'); } } return; }
-    if(R.phase!=='race') return;
-    R.t+=dt;
-    if(k.urge && !R.prev.urge) urge(); if(k.jump && !R.prev.jump) jump(); R.prev.urge=k.urge; R.prev.jump=k.jump;
-    var steer=(P.air>0||P.stagger>0)?0:((k.left?-1:0)+(k.right?1:0));
-    P.lean+=(steer-P.lean)*Math.min(1,dt*8);
-    P.h=ang(P.h+steer*1.6*(0.55+0.45*Math.min(1,P.v/(top*0.6)))*dt);
-    var N=near(C,P.x,P.y,P.idx); P.idx=N.i; P.lat=N.lat;
-    // drafting: riding close behind a rival
-    P.draft=false; for(i=0;i<R.rivals.length;i++){ var rv=R.rivals[i], gap=rv.prog-P.prog; if(gap>6 && gap<48 && Math.abs(rv.lane-N.lat)<14){ P.draft=true; break; } }
-    if(P.draft) R.stats.draft+=dt;
-    // stamina: it comes back when you ease off, twice as fast in a rival's wake
-    P.sinceUrge+=dt; if(P.sinceUrge>0.6) P.stamina=Math.min(1,P.stamina+dt*0.10*(0.6+0.8*R.mount.stamina)*(P.draft?2:1));
-    if(P.tired && P.stamina>=0.3){ P.tired=false; call(P,'SECOND WIND','#5fd36a'); }
-    // the pace it settles to: a steady canter, less when tired or turning hard
-    var cruise=top*(P.tired?0.72:0.8)*(steer?0.93:1)*(P.draft?1.03:1);
-    if(P.stagger>0){ P.stagger-=dt; cruise*=0.5; }
-    P.v+=(cruise-P.v)*Math.min(1,dt*(P.v>cruise?0.9:0.7));
-    P.ph+=dt/strideLen(R);
-    if(P.air>0) P.air-=dt;
-    P.x+=Math.cos(P.h)*P.v*dt; P.y+=Math.sin(P.h)*P.v*dt;
-    var lim=C.W/2-4; if(Math.abs(N.lat)>lim){ var out=Math.abs(N.lat)-lim; P.x-=(-Math.sin(N.ang))*Math.sign(N.lat)*out; P.y-=Math.cos(N.ang)*Math.sign(N.lat)*out; P.v*=0.985; P.bump=0.15; }   // the rails hold you in
-    var N2=near(C,P.x,P.y,P.idx), dd=N2.d-(((P.prog%C.len)+C.len)%C.len); if(dd<-C.len/2) dd+=C.len; if(dd>C.len/2) dd-=C.len;
-    var was=P.prog; P.prog+=dd; P.idx=N2.i;
-    // reaching a fence without having jumped it
-    C.jumps.forEach(function(j){ var lapBase=Math.floor(was/C.len)*C.len, d=lapBase+j.d, key=j.n+':'+Math.floor(d/C.len);
-      if(was<d-4 && P.prog>=d-4 && !P.jumpsDone[key]){ P.jumpsDone[key]='hit'; R.stats.hit++;
-        if(P.air>0){ P.jumpsDone[key]='clean'; R.stats.hit--; return; }                // still in the air from a timely jump: over it
-        if(j.kind==='water'){ P.v*=0.45; call(P,'SPLASH!','#6aaae0'); } else if(j.kind==='ditch'){ P.v*=0.5; call(P,'STUMBLED IN THE DITCH','#f0a050'); }
-        else { P.v*=0.35; P.stagger=0.5; call(P,'REFUSED!','#e0563a'); } } });
-    if(P.bump>0) P.bump-=dt; if(P.calloutT>0) P.calloutT-=dt;
-    var lap=clamp(Math.floor(P.prog/C.len)+1,1,R.laps); if(lap>P.lap){ P.splits.push(Math.round((R.t-P.lastSplit)*100)/100); P.lastSplit=R.t; P.lap=lap; call(P,'LAP '+lap+'!','#fff2c8'); }
-    // the rivals: each holds its pace, eases off for tight turns, and takes its fences cleanly with a moment's check
-    for(i=0;i<R.rivals.length;i++){ var r=R.rivals[i]; if(r.finished) continue;
-      var rp=pointAt(C,r.prog), cap=1.6*(C.rad[rp.i]+C.W*0.35);
-      r.v+=(Math.min(r.pace,cap)-r.v)*Math.min(1,dt*0.8);
-      var rw=r.prog; r.prog+=r.v*dt; r.lane=r.lane0+Math.sin(R.t*0.4+i*2)*6; r.stride+=dt/0.56; if(r.air>0) r.air-=dt;
-      C.jumps.forEach(function(j){ var d=Math.floor(rw/C.len)*C.len+j.d; if(rw<d-TAKEOFF && r.prog>=d-TAKEOFF){ r.air=0.45; r.v*=0.94; } });
-      var q=pointAt(C,r.prog); r.x=q.x+(-Math.sin(q.ang))*r.lane; r.y=q.y+Math.cos(q.ang)*r.lane; r.ang=q.ang;
-      var bd=Math.hypot(P.x-r.x,P.y-r.y); if(bd<12 && P.air<=0 && r.air<=0){ var bx=(P.x-r.x)/(bd||1), by=(P.y-r.y)/(bd||1); P.x=r.x+bx*12; P.y=r.y+by*12; P.v*=0.97; r.v*=0.97; P.bump=0.15; }
-      r.lap=clamp(Math.floor(r.prog/C.len)+1,1,R.laps);
-      if(r.prog>=R.total && !r.finished){ r.finished=true; R.finishOrder.push(r); r.place=R.finishOrder.length; } }
-    if(P.prog>=R.total && !P.finished){ P.splits.push(Math.round((R.t-P.lastSplit)*100)/100); P.finished=true; R.finishOrder.push(P); P.place=R.finishOrder.length; finish(); return; }
-    var ahead=0; for(i=0;i<R.rivals.length;i++){ var rr=R.rivals[i]; if(rr.finished||rr.prog>P.prog) ahead++; } P.place=ahead+1;
-    R.camAng=ang(R.camAng+ang(P.h-R.camAng)*Math.min(1,dt*5));
-  }
-  function finish(){ var R=global.race, P=R.P, key=R.course.key, ms=Math.round(R.t*1000), rec=record(key), beat=ms<rec;
-    var gold=Math.round(({1:250,2:140,3:75}[P.place]||0)*(1+(R.course.tier-1)*0.3));
-    var item=null; if(beat){ global.raceRecords[key]=ms; if(typeof player!=='undefined' && player && !player.raceBarding) item="Seraph's Pet Barding"; }
-    R.result={ finished:true, placed:P.place, timeMs:ms, record:rec, beatRecord:beat, gold:gold, item:item, course:key, mount:R.mount.id };
-    R.bank.gold+=gold; if(item) R.bank.item=item; R.bank.placed=P.place; R.bank.timeMs=ms;
-    R.phase='finish'; R.hits=[]; }
-
-  // ── the view ──
-  function view(R){
-    var g=R.low.getContext('2d'), C=R.C, P=R.P, pal=C.spec.pal, HZ=Math.round(LH*VIEW.horizon), F=VIEW.focal, H=VIEW.height, a=R.camAng;
-    var fx=Math.cos(a), fy=Math.sin(a), rx=-fy, ry=fx, ex=P.x-fx*VIEW.back, ey=P.y-fy*VIEW.back, x, y, i;
-    g.setTransform(1,0,0,1,0,0); g.globalAlpha=1; g.imageSmoothingEnabled=false;
-    if(!R.sky){ R.sky=g.createLinearGradient(0,0,0,HZ); R.sky.addColorStop(0,pal.sky); R.sky.addColorStop(1,pal.skyLow); }
-    g.fillStyle=R.sky; g.fillRect(0,0,LW,HZ+1);
-    var sa=ang(C.spec.sunAng-a); if(Math.abs(sa)<1){ g.fillStyle=pal.sun; g.beginPath(); g.arc(LW/2+sa*LW*0.85,HZ-30,8,0,TAU); g.fill(); }
-    // far hills, near hills, and the town on its hill
-    for(x=0;x<LW;x+=2){ var a1=a+(x-LW/2)/LW*1.2, h1=Math.round(10+5*Math.sin(a1*2+1)+3*Math.sin(a1*5)); g.fillStyle=pal.hillsFar; g.fillRect(x,HZ-h1,2,h1);
-      var h2=Math.round(5+3*Math.sin(a1*3)+2*Math.sin(a1*8+2)); g.fillStyle=pal.hills; g.fillRect(x,HZ-h2,2,h2); }
-    var ta=ang(-Math.PI/2-a); if(Math.abs(ta)<0.9){ var tx=Math.round(LW/2+ta*LW*0.85), base=HZ-8; g.fillStyle=mix(pal.hills,'#000000',0.25);
-      if(C.spec.town==='keep'){ g.fillRect(tx-14,base-14,28,14); g.fillRect(tx-14,base-20,6,6); g.fillRect(tx+8,base-20,6,6); g.fillRect(tx-3,base-24,6,10); }
-      else if(C.spec.town==='domes'){ for(i=0;i<3;i++){ g.fillRect(tx-16+i*12,base-8,10,8); g.beginPath(); g.arc(tx-11+i*12,base-8,5,Math.PI,0); g.fill(); } }
-      else if(C.spec.town==='city'){ g.fillRect(tx-20,base-10,40,10); g.fillRect(tx-6,base-26,12,16); g.fillRect(tx-18,base-18,6,8); g.fillRect(tx+12,base-18,6,8); g.fillRect(tx-1,base-32,2,6); }
-      else { for(i=0;i<3;i++){ g.fillRect(tx-18+i*13,base-7,10,7); g.beginPath(); g.moveTo(tx-19+i*13,base-7); g.lineTo(tx-13+i*13,base-12); g.lineTo(tx-7+i*13,base-7); g.fill(); } } }
-    var band=R.band||1;
-    for(y=HZ+1;y<LH;y+=band){ var z=H*F/(y+band*0.5-0.5-HZ), cx=ex+fx*z, cy=ey+fy*z, s=F/z;
-      g.save(); g.beginPath(); g.rect(0,y,LW,band); g.clip(); g.setTransform(rx*s, fx*s, ry*s, fy*s, LW/2-(cx*rx+cy*ry)*s, y-(cx*fx+cy*fy)*s); g.drawImage(C.tex,0,0); g.restore(); }
-    if(!R.fog){ R.fog=g.createLinearGradient(0,HZ,0,HZ+LH*0.22); R.fog.addColorStop(0,pal.skyLow); R.fog.addColorStop(1,'rgba(255,255,255,0)'); }
-    g.globalAlpha=0.45; g.fillStyle=R.fog; g.fillRect(0,HZ+1,LW,Math.round(LH*0.22)); g.globalAlpha=1;
-    function P3(wx,wy,wz){ var dx=wx-ex, dy=wy-ey, zz=dx*fx+dy*fy; if(zz<6) return null; var ss=F/zz; return [LW/2+(dx*rx+dy*ry)*ss, HZ+(H-wz)*ss, ss, zz]; }
-    var list=[];
-    function add(wx,wy,draw){ var p=P3(wx,wy,0); if(!p||p[3]<8||p[3]>1400) return; list.push({ z:p[3], sx:p[0], sy:p[1], s:p[2], draw:draw }); }
-    C.trees.forEach(function(t){ add(t.x,t.y,function(o){ stamp(g,treeSpr(t.k),o.sx,o.sy,o.s,K_TREE); }); });
-    function wall(x0,y0,x1,y1,hgt,col,top,bushy){ var A=P3(x0,y0,0), B=P3(x1,y1,0), A2=P3(x0,y0,hgt), B2=P3(x1,y1,hgt); if(!A||!B||!A2||!B2) return;
-      g.fillStyle=col; g.beginPath(); g.moveTo(A[0],A[1]); g.lineTo(B[0],B[1]); g.lineTo(B2[0],B2[1]); g.lineTo(A2[0],A2[1]); g.closePath(); g.fill();
-      g.fillStyle=top; g.beginPath(); g.moveTo(A2[0],A2[1]); g.lineTo(B2[0],B2[1]); g.lineTo(B2[0],B2[1]+Math.max(1,(B[1]-B2[1])*0.25)); g.lineTo(A2[0],A2[1]+Math.max(1,(A[1]-A2[1])*0.25)); g.closePath(); g.fill();
-      if(bushy){ for(var q=0;q<=12;q++){ var t=q/12, X=A2[0]+(B2[0]-A2[0])*t, Y=A2[1]+(B2[1]-A2[1])*t; g.fillStyle=q%2?top:bushy; g.beginPath(); g.arc(X,Y,Math.max(1,A[2]*2.2),0,TAU); g.fill(); } }
-      [A,B].forEach(function(Q){ g.fillStyle='#f4eede'; g.fillRect(Math.round(Q[0]-Q[2]*1.2), Math.round(Q[1]-Q[2]*(hgt+4)), Math.max(1,Math.round(Q[2]*2.2)), Math.max(1,Math.round(Q[2]*(hgt+4)))); }); }
-    function rails(x0,y0,x1,y1){ [3,6,9].forEach(function(hh){ var A=P3(x0,y0,hh), B=P3(x1,y1,hh); if(!A||!B) return; g.strokeStyle='#f4eede'; g.lineWidth=Math.max(1,A[2]*1.2); g.beginPath(); g.moveTo(A[0],A[1]); g.lineTo(B[0],B[1]); g.stroke(); });
-      for(var q=0;q<=4;q++){ var t=q/4, X=x0+(x1-x0)*t, Y=y0+(y1-y0)*t, A=P3(X,Y,0), B=P3(X,Y,10); if(!A||!B) continue; g.fillStyle='#d8d0c0'; g.fillRect(Math.round(A[0]-A[2]*0.6),Math.round(B[1]),Math.max(1,Math.round(A[2]*1.2)),Math.round(A[1]-B[1])); } }
-    C.jumps.forEach(function(j){ var nx=-Math.sin(j.ang), ny=Math.cos(j.ang), Wd=C.W/2+6, x0=j.x-nx*Wd, y0=j.y-ny*Wd, x1=j.x+nx*Wd, y1=j.y+ny*Wd;
-      add(j.x,j.y,function(){
-        if(j.kind==='hedge') wall(x0,y0,x1,y1,9,'#2e6a3a','#4a8a4a','#3e7a44');
-        else if(j.kind==='wall') wall(x0,y0,x1,y1,8,'#7a7a84','#a8a8b4');
-        else if(j.kind==='brush') wall(x0,y0,x1,y1,8,'#8a7a4a','#b0a060','#a08a50');
-        else if(j.kind==='rails') rails(x0,y0,x1,y1);
-        else wall(x0,y0,x1,y1,4,'#6a8a3a','#8aaa4a'); }); });                         // water and ditch: a low brush fence on the take-off side
-    R.rivals.forEach(function(r,k){ var pz=(r.x-ex)*fx+(r.y-ey)*fy; if(pz<VIEW.back-4) return;   // level with you or behind: off-screen, not drawn huge over the controls
-      add(r.x,r.y,function(o){ stamp(g,mountRear(r.mount,Math.floor(r.stride*2)%2,r.air>0,r.rider),o.sx,o.sy-(r.air>0?o.s*5:0),o.s,K_HORSE); }); });
-    add(P.x,P.y,function(o){ stamp(g,mountRear(R.mount,Math.floor(P.ph*2)%2,P.air>0,null),o.sx,o.sy-(P.air>0?o.s*5:0),o.s,K_HORSE); });
-    list.sort(function(p,q){ return q.z-p.z; }); for(i=0;i<list.length;i++) list[i].draw(list[i]);
-    if(R.mount.fx && R.mount.own){ var fxc={sparkle:'#fff2c8',glow:'#fff8d0',hearts:'#e87a9a',notes:'#f4d878',petals:'#f0b0c8',fireflies:'#e8f070',bubbles:'#bfe8ff'}[R.mount.fx]||'#fff2c8';   // your pet look's effect trails behind
-      g.fillStyle=fxc; for(i=0;i<8;i++){ var ph=(R.t*0.8+i/8)%1; g.globalAlpha=1-ph; g.fillRect(Math.round(LW/2+Math.sin(i*2.3+R.t)*16), Math.round(LH*0.78-ph*40), 2, 2); } g.globalAlpha=1; }
-  }
-  function T(ctx,s,x,y,col,size,align,bold){ ctx.font=(bold===false?'':'bold ')+size+"px 'Courier New', monospace"; ctx.textAlign=align||'left'; ctx.textBaseline='alphabetic';
-    ctx.lineJoin='round'; ctx.miterLimit=2; ctx.lineWidth=4; ctx.strokeStyle='#06101c'; ctx.strokeText(s,x,y); ctx.fillStyle=col; ctx.fillText(s,x,y); ctx.textAlign='left'; ctx.lineJoin='miter'; ctx.miterLimit=10; }
-  function ordinal(n){ return n===1?'1st':n===2?'2nd':n===3?'3rd':n+'th'; }
-  function hit(R,x,y,w,h,fn,pad){ R.hits.push({x:x,y:y,w:w,h:h,fn:fn,pad:pad}); }
-  function drawRaceScreen(ctx,R){
-    var C=R.C, P=R.P, i, t0=(typeof performance!=='undefined')?performance.now():null;
-    view(R);
-    if(t0!==null){ R.drawMs=(R.drawMs||0)+(performance.now()-t0); R.drawN=(R.drawN||0)+1; if(R.drawN===30 && !R.band && R.drawMs/30>12) R.band=2; }   // a slow device draws the turf in two-row bands
-    ctx.imageSmoothingEnabled=false; ctx.drawImage(R.low,0,0,BW,BH); ctx.imageSmoothingEnabled=true;
-    if(P.bump>0){ ctx.fillStyle='rgba(122,31,31,.2)'; ctx.fillRect(0,0,BW,BH); }
-    var pl=ordinal(P.place); T(ctx,pl.charAt(0),18,62,'#f4d878',52); T(ctx,pl.slice(1),52,40,'#f4d878',20); T(ctx,'/'+(R.rivals.length+1),20,84,'#e8e0cf',16);
-    T(ctx,'LAP '+P.lap+'/'+R.laps,BW/2,30,'#e8e0cf',18,'center'); T(ctx,fmt(R.t*1000),BW/2,52,'#f4eede',14,'center',false);
-    var mx=BW-118, my=40, ms=104, k=ms/C.S;
-    ctx.fillStyle='rgba(6,16,28,.55)'; ctx.fillRect(mx-4,my-4,ms+8,ms+8); ctx.strokeStyle='#5a4a2a'; ctx.lineWidth=2; ctx.strokeRect(mx-4,my-4,ms+8,ms+8);
-    ctx.strokeStyle='#e8d8a0'; ctx.lineWidth=4; ctx.beginPath(); C.line.forEach(function(p,j){ if(j) ctx.lineTo(mx+p[0]*k,my+p[1]*k); else ctx.moveTo(mx+p[0]*k,my+p[1]*k); }); ctx.closePath(); ctx.stroke();
-    C.jumps.forEach(function(j){ ctx.fillStyle=j.kind==='water'?'#5a9ad0':j.kind==='ditch'?'#6a4a2a':'#2e6a3a'; ctx.fillRect(mx+j.x*k-2,my+j.y*k-2,5,5); });
-    function dot(x,y,col,r){ ctx.fillStyle='#06101c'; ctx.beginPath(); ctx.arc(mx+x*k,my+y*k,r+1.5,0,TAU); ctx.fill(); ctx.fillStyle=col; ctx.beginPath(); ctx.arc(mx+x*k,my+y*k,r,0,TAU); ctx.fill(); }
-    R.rivals.forEach(function(r){ dot(r.x,r.y,r.rider.silk,3); }); dot(P.x,P.y,'#3b6fd4',4.5);
-    T(ctx,'✕',BW-24,24,'#e8e0cf',18,'center'); hit(R,BW-44,2,40,32,function(){ R.phase='select'; R.hits=[]; });
-    // the next fence
-    var J=nextJumpAhead(R,P,600), NAMES={hedge:'HEDGE',rails:'RAILS',wall:'STONE WALL',brush:'BRUSH FENCE',water:'WATER JUMP',ditch:'DITCH'};
-    ctx.fillStyle='rgba(6,16,28,.6)'; ctx.fillRect(BW/2-118,66,236,30); ctx.strokeStyle='#5a4a2a'; ctx.lineWidth=2; ctx.strokeRect(BW/2-118,66,236,30);
-    var jt=J ? NAMES[J.j.kind]+(J.d-P.prog<160?' · JUMP AT THE LINE':' AHEAD') : 'RUN IN TO THE FINISH';
-    T(ctx,jt,BW/2,87,J&&J.d-P.prog<160?'#fff2c8':'#f4d878',14,'center');
-    // stamina
-    var sx=18, sy=BH-196, sf=P.stamina; ctx.fillStyle='rgba(6,16,28,.6)'; ctx.fillRect(sx,sy,200,20); ctx.strokeStyle='#5a4a2a'; ctx.strokeRect(sx,sy,200,20);
-    ctx.fillStyle=P.tired?'#a83a2a':sf>0.5?'#5fd36a':sf>0.25?'#f0c050':'#e0563a'; ctx.fillRect(sx+2,sy+2,196*sf,16);
-    T(ctx,P.tired?'TIRED':'STAMINA',sx,sy-6,P.tired?'#e0563a':'#e8e0cf',13); if(P.draft) T(ctx,'≋ DRAFTING',sx+92,sy-6,'#9ad8ff',13);
-    // controls: ◀ ▶ left; JUMP and URGE right
-    function pad(x,lab,on,name){ ctx.fillStyle=on?'rgba(244,216,120,.45)':'rgba(6,16,28,.45)'; ctx.fillRect(x,BH-130,108,108); ctx.strokeStyle='#8a6418'; ctx.lineWidth=2; ctx.strokeRect(x,BH-130,108,108);
-      T(ctx,lab,x+54,BH-64,'#e8e0cf',34,'center'); hit(R,x,BH-130,108,108,null,name); }
-    pad(12,'◀',R.keys.left,'left'); pad(128,'▶',R.keys.right,'right');
-    var rx=BW-74, ry=BH-76, rr=50, f=P.ph-Math.floor(P.ph);
-    ctx.fillStyle=R.keys.urge?'rgba(244,216,120,.35)':'rgba(6,16,28,.55)'; ctx.beginPath(); ctx.arc(rx,ry,rr+8,0,TAU); ctx.fill();
-    ctx.strokeStyle='#3a2e1a'; ctx.lineWidth=8; ctx.beginPath(); ctx.arc(rx,ry,rr,0,TAU); ctx.stroke();
-    ctx.strokeStyle='#5fd36a'; ctx.beginPath(); ctx.arc(rx,ry,rr,-Math.PI/2-GOOD*TAU,-Math.PI/2+GOOD*TAU); ctx.stroke();
-    ctx.strokeStyle='#bff5c4'; ctx.beginPath(); ctx.arc(rx,ry,rr,-Math.PI/2-PERFECT*TAU,-Math.PI/2+PERFECT*TAU); ctx.stroke();
-    var a2=-Math.PI/2+f*TAU; ctx.strokeStyle='#f4d878'; ctx.lineWidth=8; ctx.beginPath(); ctx.arc(rx,ry,rr,a2-0.12,a2+0.12); ctx.stroke();
-    T(ctx,'URGE',rx,ry+7,P.tired?'#a89878':'#f4d878',19,'center'); hit(R,rx-rr-8,ry-rr-8,(rr+8)*2,(rr+8)*2,null,'urge');
-    var jx=BW-176, jy=BH-196, near2=J && (J.d-TAKEOFF-P.prog)<70 && (J.d-TAKEOFF-P.prog)>-20;
-    ctx.fillStyle=near2?'rgba(244,216,120,.6)':'rgba(6,16,28,.55)'; ctx.beginPath(); ctx.arc(jx,jy,42,0,TAU); ctx.fill(); ctx.strokeStyle=near2?'#fff2c8':'#8a6418'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(jx,jy,42,0,TAU); ctx.stroke();
-    T(ctx,'JUMP',jx,jy+7,near2?'#fff2c8':'#f4d878',18,'center'); hit(R,jx-44,jy-44,88,88,null,'jump');
-    if(P.calloutT>0){ ctx.globalAlpha=Math.min(1,P.calloutT*2); T(ctx,P.callout,BW/2,BH*0.47,P.calloutCol,26,'center'); ctx.globalAlpha=1; }
-    if(R.phase==='countdown' && R.count>0) T(ctx,String(R.count),BW/2,BH*0.40,'#f4d878',96,'center');
-  }
-  function btn(ctx,R,x,y,w,h,label,fn,style){ ctx.fillStyle=style==='gold'?'#7a1f2b':style==='ghost'?'rgba(0,0,0,0)':'#241a2e'; ctx.fillRect(x,y,w,h); ctx.strokeStyle='#d4af37'; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
-    T(ctx,label,x+w/2,y+h/2+6,'#f4eede',16,'center'); hit(R,x,y,w,h,fn); }
-  function drawSelect(ctx,R){
-    ctx.fillStyle='#14101a'; ctx.fillRect(0,0,BW,BH);
-    var c=R.course=COURSES[courseIdx];
-    T(ctx,"The King's Tourney",BW/2,38,'#d4af37',22,'center');
-    T(ctx,'◀',30,74,'#d4af37',22,'center'); T(ctx,'▶',BW-30,74,'#d4af37',22,'center');
-    hit(R,0,48,70,40,function(){ courseIdx=(courseIdx+COURSES.length-1)%COURSES.length; }); hit(R,BW-70,48,70,40,function(){ courseIdx=(courseIdx+1)%COURSES.length; });
-    T(ctx,c.name,BW/2,70,'#f4d878',15,'center'); T(ctx,c.laps+' laps · '+c.jumps.length+' fences a lap · '+c.feel,BW/2,90,'#cfc6d8',11,'center',false);
-    T(ctx,'Course record '+fmt(record(c.key)),BW/2,110,'#9a8fa6',11,'center',false);
-    T(ctx,'CHOOSE YOUR MOUNT',BW/2,138,'#f4d878',14,'center');
-    var list=R.mounts, y=150;
-    function card(m,x,yy,w,h,i){ var sel=R.sel===i; ctx.fillStyle=sel?'#2a2036':'#1a1420'; ctx.fillRect(x,yy,w,h); ctx.strokeStyle=sel?'#d4af37':'#3a2e44'; ctx.lineWidth=sel?3:1; ctx.strokeRect(x,yy,w,h);
-      ctx.imageSmoothingEnabled=false; ctx.drawImage(mountRear(m,0,false,m.own?null:{silk:m.silk,silk2:m.silk2}),x+8,yy+10,Math.round(h*0.62),Math.round(h*0.86)); ctx.imageSmoothingEnabled=true;
-      var tx=x+16+Math.round(h*0.62);
-      T(ctx,m.own?'Your steed: '+m.name:m.name,tx,yy+24,'#f4d878',14); T(ctx,m.own?m.blurb+(m.back?' · dressed by the stylist':''):m.blurb,tx,yy+40,'#cfc6d8',10,'left',false);
-      [['SPEED',m.speed],['STAMINA',m.stamina],['JUMP',m.jump]].forEach(function(s,k){ T(ctx,s[0],tx,yy+58+k*14,'#9a8fa6',9,'left',false); ctx.fillStyle='#2a2030'; ctx.fillRect(tx+52,yy+51+k*14,w-(tx-x)-62,7); ctx.fillStyle='#d4af37'; ctx.fillRect(tx+52,yy+51+k*14,(w-(tx-x)-62)*s[1],7); });
-      hit(R,x,yy,w,h,function(){ R.sel=i; }); }
-    var start=0; if(list[0] && list[0].own){ card(list[0],20,y,BW-40,104,0); start=1; y+=114; T(ctx,'OR BORROW A TOURNEY HORSE',BW/2,y+4,'#9a8fa6',11,'center',false); y+=14; }
-    var tw=(BW-50)/2; for(var i=start;i<list.length;i++){ var k2=i-start; card(list[i],20+(k2%2)*(tw+10),y+Math.floor(k2/2)*112,tw,104,i); }
-    btn(ctx,R,BW/2-120,BH-112,240,42,'TO THE START',begin,'gold');
-    btn(ctx,R,BW/2-120,BH-60,240,36,'LEAVE THE TOURNEY',leave,'ghost');
-    if(R.bank.gold>0) T(ctx,'Winnings so far: '+R.bank.gold+' gold',BW/2,BH-122,'#d4af37',12,'center',false);
-  }
-  function drawFinish(ctx,R){
-    var r=R.result; ctx.fillStyle='rgba(10,8,16,.86)'; ctx.fillRect(0,0,BW,BH);
-    T(ctx,r.placed===1?'CHAMPION!':ordinal(r.placed)+' PLACE',BW/2,170,r.placed===1?'#fff2c8':'#f4d878',40,'center');
-    T(ctx,R.course.name,BW/2,206,'#cfc6d8',13,'center',false);
-    T(ctx,'Time '+fmt(r.timeMs)+(r.beatRecord?'  ✦ NEW RECORD':''),BW/2,250,r.beatRecord?'#fff2c8':'#e8e0cf',16,'center');
-    T(ctx,'Record '+fmt(r.beatRecord?r.timeMs:r.record),BW/2,276,'#9a8fa6',12,'center',false);
-    var s=R.stats; T(ctx,'Clean jumps '+s.clean+'/'+(s.clean+s.bad+s.hit)+'  ·  strides '+(s.perfect+s.good)+'  ·  drafting '+Math.round(s.draft)+'s',BW/2,310,'#cfc6d8',11,'center',false);
-    if(r.gold>0) T(ctx,'+'+r.gold+' gold',BW/2,350,'#d4af37',20,'center');
-    if(r.item) T(ctx,'✦ Won the '+r.item+'!',BW/2,382,'#fff2c8',15,'center');
-    btn(ctx,R,BW/2-120,BH-170,240,42,'RIDE AGAIN',function(){ R.phase='select'; R.result=null; R.C=null; R.low=null; },'gold');
-    btn(ctx,R,BW/2-120,BH-116,240,42,'LEAVE WITH WINNINGS',leave);
-  }
-  function drawRace(ctx, cw, ch){ var R=global.race; if(!R) return;
-    if(typeof cw!=='number') cw=BW; if(typeof ch!=='number') ch=BH;
-    var sc=Math.min(cw/BW, ch/BH), dx=(cw-BW*sc)/2, dy=(ch-BH*sc)/2; R.xf={ sc:sc, dx:dx, dy:dy }; R.hits=[];
-    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#06040a'; ctx.fillRect(0,0,cw,ch); ctx.translate(dx,dy); ctx.scale(sc,sc);
-    ctx.beginPath(); ctx.rect(0,0,BW,BH); ctx.clip();
-    if(R.phase==='select') drawSelect(ctx,R); else if(R.C){ drawRaceScreen(ctx,R); if(R.phase==='finish') drawFinish(ctx,R); }
-    ctx.restore(); }
-  // ── input ──
-  function raceTick(dtFrames){ var R=global.race; if(!R) return; var dt=Math.min(0.05,(dtFrames||1)/60); R.t2=(R.t2||0)+dt; if(R.C && (R.phase==='countdown'||R.phase==='race')) step(dt); }
-  function raceHold(dir,on){ var R=global.race; if(!R) return; if(dir==='LEFT') R.keys.left=!!on; else if(dir==='RIGHT') R.keys.right=!!on; else if(dir==='UP') R.keys.urge=!!on; }
-  function racePress(key){ var R=global.race; if(!R) return;
-    if(R.phase==='select'){ if(key==='LEFT') R.sel=(R.sel+R.mounts.length-1)%R.mounts.length; else if(key==='RIGHT') R.sel=(R.sel+1)%R.mounts.length;
-      else if(key==='UP') courseIdx=(courseIdx+COURSES.length-1)%COURSES.length; else if(key==='DOWN') courseIdx=(courseIdx+1)%COURSES.length;
-      else if(key==='A') begin(); else if(key==='B') leave(); return; }
-    if(R.phase==='race'||R.phase==='countdown'){ if(key==='A') jump(); else if(key==='B'){ R.phase='select'; R.C=null; } return; }
-    if(R.phase==='finish'){ if(key==='A') leave(); else if(key==='B'){ R.phase='select'; R.result=null; R.C=null; } } }
-  function toVirtual(px,py){ var R=global.race; if(!R||!R.xf) return null; return [(px-R.xf.dx)/R.xf.sc,(py-R.xf.dy)/R.xf.sc]; }
-  function racePadAt(px,py){ var v=toVirtual(px,py); if(!v) return null; var R=global.race; for(var i=R.hits.length-1;i>=0;i--){ var h=R.hits[i]; if(h.pad && v[0]>=h.x&&v[0]<=h.x+h.w&&v[1]>=h.y&&v[1]<=h.y+h.h) return h.pad; } return null; }
-  function racePointer(px,py,phase){ var v=toVirtual(px,py); if(!v||phase!=='down') return false; var R=global.race; for(var i=R.hits.length-1;i>=0;i--){ var h=R.hits[i]; if(v[0]>=h.x&&v[0]<=h.x+h.w&&v[1]>=h.y&&v[1]<=h.y+h.h){ if(h.fn){ h.fn(); return true; } if(h.pad) return true; } } return false; }
-  function raceSetPads(p){ var R=global.race; if(!R) return; R.keys.left=!!p.left; R.keys.right=!!p.right; R.keys.urge=!!p.urge; R.keys.jump=!!p.jump; }
-  global.racePress=racePress; global.raceHold=raceHold; global.raceTick=raceTick; global.drawRace=drawRace; global.startRace2=startRace;
-  global.racePadAt=racePadAt; global.racePointer=racePointer; global.raceSetPads=raceSetPads; global.RACE_PADS=['left','right','urge','jump'];
-  global.SC={ courses:COURSES, mounts:MOUNTS, steeds:STEEDS, ownSteed:ownSteed, pace:PACE, par:PAR, start:startRace, begin:begin, step:step, urge:urge, jump:jump, near:near, pointAt:pointAt,
-    build:build, view:view, takeoff:TAKEOFF, perfect:PERFECT, good:GOOD, setCourse:function(i){ courseIdx=i; }, leave:leave };   // for the suites
-})(typeof window!=='undefined'?window:globalThis);
-
-
 
 
 // ── KLK ↔ race bridge ─────────────────────────────────────────────
@@ -5541,7 +5095,6 @@ function finishRace(result){
     cv.style.width=raceCanvasSave.sw; cv.style.height=raceCanvasSave.sh;
     cv.style.imageRendering=raceCanvasSave.ir||'pixelated'; raceCanvasSave=null; }
   resize();
-  if(IS_TOUCH){ const c=document.getElementById('controls'); if(c) c.style.display=''; const m=document.getElementById('menuBtn'); if(m) m.style.display=''; }   // the steeplechase hid them
   if(result && result.finished){
     if(result.gold>0){ gold+=result.gold; }
     if(result.item){ player.raceBarding=true; }   // Seraph's Pet Barding (course-record reward)
@@ -7269,7 +6822,6 @@ function buildSaveData(){
       name:player.name||'Knight', pet:player.pet||null, surfBest:player.surfBest||0, petGear:player.petGear||{}, barnPets:player.barnPets||[], raceBarding:!!player.raceBarding, petLooksOwned:player.petLooksOwned||{}, boatInv:player.boatInv||null, hasLamp:!!player.hasLamp, championRobe:!!player.championRobe, mountSkin:player.mountSkin||null, mountSkinOwned:player.mountSkinOwned||{} },
     gold, inventory, quests, tutorial, chapelProgress, crops, secretsFound,
     raceRecordMs: (typeof raceRecordMs==='number'?raceRecordMs:60000),
-    raceRecords: (typeof raceRecords==='object'&&raceRecords)?Object.assign({},raceRecords):{},   // 🐎 the steeplechase's record per course (2026-10-07)
     explored:[...explored], abaddonWon:!!abaddon.won,
     hunt:{ active:hunt.active, done:hunt.done, killed:hunt.killed, total:hunt.total, remaining:hunt.remaining.slice() },
     bounties:{ active:bounties.active.map(b=>Object.assign({},b)), complete:bounties.complete.map(c=>Object.assign({},c)), nextId:bounties.nextId,
@@ -7391,7 +6943,6 @@ function applySaveData(s){
   // load would make Bare Fists impossible to keep equipped across a save/load.
   if(_preRusty && player.equip.weapon==='none_w') player.equip.weapon='rusty';
   if(typeof s.raceRecordMs==='number') raceRecordMs=s.raceRecordMs;
-  window.raceRecords = (s.raceRecords && typeof s.raceRecords==='object') ? Object.assign({},s.raceRecords) : {};   // an old save has no per-course records: every course starts at its par
   dayClock.t=(s.clock&&typeof s.clock.t==='number')?s.clock.t:DAY_LEN*0.375;
   dayClock.day=(s.clock&&s.clock.day)||1; _wasNight=null;
   playMs=s.playMs||0;
@@ -15996,9 +15547,7 @@ function openRace(){
   const cssH=Math.round(parseFloat(cv.style.height)||cv.clientHeight||cv.height);
   cv.width=Math.round(cssW*dpr); cv.height=Math.round(cssH*dpr);
   cv.style.imageRendering='auto';
-  // 🐎 the steeplechase draws its own controls (◀ ▶ URGE JUMP) — hide the d-pad/A/B and the stick, as the regatta does
-  if(IS_TOUCH){ for(const id of ['controls','joy','menuBtn','mountBtn']){ const el=document.getElementById(id); if(el) el.style.display='none'; } }
-  startRace2();   // _legacy: startRace({ record: raceRecordMs }) — the old lane race's own start (its module is _legacy)
+  startRace({ record: (typeof raceRecordMs==='number'?raceRecordMs:60000) });
 }
 let raceCanvasSave=null;
 const RIBBONS=['','🎀','⭐','🔥','✝','🌊','🍀'];
@@ -36615,7 +36164,7 @@ banner.addEventListener('click', e=>{
     //   which nothing was setting once the stick bailed out here. The stick was
     //   dead on the wave. Same shape as the tourney stick bug: the game reads one
     //   set of flags and the input writes another, or none at all.
-    if(place.kind==='boatrace'||place.kind==='race') return;   // the regatta and the steeplechase own their input
+    if(place.kind==='boatrace') return;   // the regatta really does own its input
     const t=e.changedTouches[0];
     const [ax,ay]=anchor();
     if(Math.hypot(t.clientX-ax, t.clientY-ay) > GRAB) return;   // only grab ON the stick — taps elsewhere pass through untouched
@@ -36702,39 +36251,34 @@ banner.addEventListener('click', e=>{
     return [ (clientX-r.left) * cv.width  / r.width,
              (clientY-r.top)  * cv.height / r.height ];
   }
-  // which mini-game owns the canvas: the regatta, or the steeplechase (2026-10-07: same multi-touch pads)
-  function M(){ if(place.kind==='boatrace') return { padAt:boatPadAt, setPads:boatSetPads, pointer:boatPointer, names:['left','right','throttle'] };
-    if(place.kind==='race' && typeof racePadAt==='function' && window.race && window.race.v===2) return { padAt:racePadAt, setPads:raceSetPads, pointer:racePointer, names:RACE_PADS };
-    return null; }
   // recompute steering from ALL currently-active touches
   function applyPads(touchList){
-    const m=M(); if(!m) return;
-    const pads={}; m.names.forEach(n=>pads[n]=false);
+    const pads={ left:false, right:false, throttle:false };
     for(const t of touchList){
       const [px,py]=toCanvas(t.clientX, t.clientY);
-      const pad=m.padAt(px,py);
+      const pad=boatPadAt(px,py);
       if(pad) pads[pad]=true;
     }
-    m.setPads(pads);
+    boatSetPads(pads);
   }
   // ── touch ──
   stage.addEventListener('touchstart', e=>{
-    const m=M(); if(!m) return;
+    if(place.kind!=='boatrace') return;
     // a fresh touch may be a menu-button tap OR a steering press
     const t=e.changedTouches[0];
     const [px,py]=toCanvas(t.clientX, t.clientY);
     // only treat as a menu tap if it lands on a non-pad button
-    if(m.padAt(px,py)===null){ m.pointer(px,py,'down'); }
+    if(boatPadAt(px,py)===null){ boatPointer(px,py,'down'); }
     applyPads(e.touches);
     e.preventDefault();
   }, {passive:false});
   stage.addEventListener('touchmove', e=>{
-    if(!M()) return;
+    if(place.kind!=='boatrace') return;
     applyPads(e.touches);
     e.preventDefault();
   }, {passive:false});
   const tend=e=>{
-    if(!M()) return;
+    if(place.kind!=='boatrace') return;
     applyPads(e.touches);   // remaining touches still down
   };
   stage.addEventListener('touchend', tend);
@@ -36742,18 +36286,19 @@ banner.addEventListener('click', e=>{
   // ── mouse (desktop) ──
   let mdown=false;
   cv.addEventListener('mousedown', e=>{
-    const m=M(); if(!m) return;
+    if(place.kind!=='boatrace') return;
     const [px,py]=toCanvas(e.clientX, e.clientY);
-    if(m.padAt(px,py)===null){ m.pointer(px,py,'down'); }
-    else { mdown=true; const pad=m.padAt(px,py); const p={}; m.names.forEach(n=>p[n]=false); p[pad]=true; m.setPads(p); }
+    if(boatPadAt(px,py)===null){ boatPointer(px,py,'down'); }
+    else { mdown=true; const pad=boatPadAt(px,py); const p={}; p[pad]=true; boatSetPads(p); }
     e.preventDefault();
   });
   cv.addEventListener('mousemove', e=>{
-    const m=M(); if(!m||!mdown) return;
+    if(place.kind!=='boatrace'||!mdown) return;
     const [px,py]=toCanvas(e.clientX, e.clientY);
-    const pad=m.padAt(px,py), p={}; m.names.forEach(n=>p[n]=(n===pad)); m.setPads(p);
+    const pad=boatPadAt(px,py);
+    boatSetPads({ left:pad==='left', right:pad==='right', throttle:pad==='throttle' });
   });
-  addEventListener('mouseup', ()=>{ if(mdown){ mdown=false; const m=M(); if(m){ const p={}; m.names.forEach(n=>p[n]=false); m.setPads(p); } } });
+  addEventListener('mouseup', ()=>{ if(mdown){ mdown=false; boatSetPads({left:false,right:false,throttle:false}); } });
 })();
 // ════════════════════════════════════════════════════════════════
 //  AUDIO — every sound is synthesised at runtime (Web Audio). No asset
@@ -37349,7 +36894,7 @@ bootLogo.src=BOOT_LOGO_SRC;
 const boot = { done:false, phase:'logo', t:0, cursor:0, fade:0, fin:0, fading:null, slashed:false, confirmed:false };
 const BOOT_W=240, BOOT_H=160;
 // Bumped on every export. Shown on the title screen so a cached copy is obvious.
-const BUILD_TAG = '2026-10-07-sc';  // 🐎 the King's Tourney is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
+const BUILD_TAG = '2026-10-06-br3';  // 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
 
 // ── tiny Web Audio kit (game has no audio system yet; kept self-contained) ──
 let bootAC=null;
