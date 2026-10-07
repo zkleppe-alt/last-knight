@@ -28828,148 +28828,6 @@ drawKnight = function(x,y){
   // facing away the shield is in front of him — out of sight
   return r;
 };
-// ════════════════════════════════════════════════════════════════
-//  ⛵ THE KNIGHT'S OWN BOAT — a little cutter of the royal pattern
-//  A smaller sister of His Majesty's cutters in the Stormgate harbour (_sgShip, kind 'c'),
-//  drawn side-on in whole pixels and built from the parts you fit at the boat-race dock:
-//    hull   → the planking colour and its trim
-//    sail   → the canvas colour and its mark (cross, bolt, gold thread)
-//    figure → the figurehead at the prow (lamb, lion, dove)
-//    engine → the rig (twin oars, lateen, double mast, pilgrim galley)
-//    keel   → seen faintly through the water under the hull (flat, fin, blade)
-//  X = left edge, Yw = waterline, dir = +1 bow right / -1 bow left.
-//  Needs: px(x,y,w,h,c), ctx, hexMix(a,b,t).
-// ════════════════════════════════════════════════════════════════
-const KB_L = 40, KB_H = 8, KB_MH = 27;      // hull 40 px (2½ tiles; the cutters are 64), hull 8 high (cutters 11), mast 27 (cutters 40)
-const KB_TRIM = { hull_oak:'#c8a060', hull_pitch:'#d8b04a', hull_ivory:'#c9a94a', hull_crimson:'#e8c25a' };
-const KB_STRAKE = { hull_oak:'#2a4a9a', hull_pitch:'#8a1f1f', hull_ivory:'#2a4a9a', hull_crimson:'#1a1a22' };
-function kbDrawBoat(X, Yw, dir, P, t, moving, L){
-  const hull=P.hull, sail=P.sail, fig=P.figure, eng=(P.engine&&P.engine.id)||'eng_oar', keel=(P.keel&&P.keel.id)||'keel_flat';
-  L=L||KB_L; const k=L/40, H=Math.round(KB_H*Math.sqrt(k)), MH=Math.round(KB_MH*k);
-  const q=(f)=>Math.round(f*L);                                         // a fraction of the length, in pixels
-  const line=(x0,y0,x1,y1,c)=>{ const n=Math.max(Math.abs(x1-x0),Math.abs(y1-y0),1); for(let i=0;i<=n;i++) px(Math.round(x0+(x1-x0)*i/n),Math.round(y0+(y1-y0)*i/n),1,1,c); };   // a crisp 1-px line
-  const at=(u)=>dir>0?X+Math.round(u*L):X+L-1-Math.round(u*L);         // u: 0 stern … 1 bow
-  const hc=hull.color, hD=hexMix(hc,'#000000',.42), hL=hexMix(hc,'#ffffff',.22);
-  const trim=KB_TRIM[hull.id]||'#c8a060', strake=KB_STRAKE[hull.id]||'#2a4a9a';
-  const sc=sail.color, sL=hexMix(sc,'#ffffff',.35), sD=hexMix(sc,'#000000',.22);
-  const bob=Math.round(Math.sin(t*2.1)*1); Yw+=bob;
-  const deck=(u)=>Yw-H-(u>0.86?Math.round((u-0.86)*30):0)-(u<0.08?1:0); // the sheer: the bow lifts, a little rise at the transom
-
-  // ── the keel, seen through the water ──
-  ctx.globalAlpha=0.4;
-  if(keel==='keel_flat'){ for(let i=q(.15);i<q(.8);i++) px(at(i/L),Yw+2,1,1,hD); }
-  else if(keel==='keel_fin'){ for(let i=q(.32);i<q(.65);i++){ const d=3-Math.round(Math.abs(i-q(.48))/(3*k)); px(at(i/L),Yw+2,1,Math.max(1,d),hD); } }
-  else { for(let i=q(.2);i<q(.75);i++){ const d=Math.max(1,Math.round(5-Math.abs(i-q(.35))/(3.2*k))); px(at(i/L),Yw+2,1,d,'#8a96a8'); if(i>q(.22)&&i<q(.7)) px(at(i/L),Yw+2+d-1,1,1,'#d8e2ee'); } }
-  ctx.globalAlpha=1;
-
-  // ── shadow and the hull ──
-  ctx.fillStyle='rgba(8,16,32,.30)'; ctx.beginPath(); ctx.ellipse(X+L/2,Yw+2,L/2+3,3,0,0,7); ctx.fill();
-  for(let i=0;i<L;i++){ const u=i/L, xx=at(u);
-    const top=deck(u); let bot=Yw+2;
-    if(u>0.78) bot-=Math.round((u-0.78)/0.22*H*0.95);                 // the forefoot sweeps up to the stem
-    if(u<0.05) bot-=Math.round((0.05-u)/0.05*H*0.45);                 // the transom tucks in
-    px(xx,top,1,bot-top,hc);
-    px(xx,top,1,1,trim); px(xx,top+1,1,1,hD);                          // the gunwale rail
-    const sy=Yw-Math.round(H*0.52); if(sy>top+1&&sy+1<bot) px(xx,sy,1,2,strake);    // the painted strake
-    if(bot-1>top+2) px(xx,bot-1,1,1,hD);                               // the bilge in shadow
-    if((i%6)===2 && sy>top+2) px(xx,top+2,1,1,hL);                     // plank-end glints
-  }
-  ctx.fillStyle='rgba(220,236,250,.55)'; ctx.fillRect(X+2,Yw+1,L-4,1); // the waterline
-  // the rudder at the stern
-  px(at(0)-dir*1,Yw-H+2,1,H,hD); px(at(0)-dir*2,Yw-3,1,4,hD);
-
-  // ── the rig ──
-  const pen=(mx,mt)=>{ const fl=Math.sin(t*5)*1.5; for(let i=0;i<7;i++) px(mx+1+i*(-dir),mt+Math.round(fl*i/7),1,i<4?2:1,'#c82a2a'); };
-  const mark=(cx,cy,w,h)=>{                                             // the sail's device, centred
-    if(sail.mark==='cross'){ px(cx-1,cy-Math.floor(h*0.36),2,Math.round(h*0.72),'#b03028'); px(cx-Math.floor(w*0.3),cy-Math.floor(h*0.12),Math.round(w*0.6),2,'#b03028'); }
-    if(sail.mark==='bolt'){ px(cx+1,cy-4,1,3,'#e8c25a'); px(cx,cy-2,1,2,'#e8c25a'); px(cx-1,cy-1,3,1,'#e8c25a'); px(cx,cy,1,3,'#e8c25a'); px(cx-1,cy+2,1,2,'#e8c25a'); }
-    if(sail.id==='sail_gold'){ for(let k=-1;k<=1;k++) px(cx-Math.floor(w/2)+1,cy+k*3,w-2,1,'#f8e8a8'); }
-  };
-  const square=(mx,mt,yw,sh,belly)=>{                                   // a square sail hung from its yard
-    px(mx-(yw>>1),mt,yw+2,1,'#3a2414');
-    const sw=yw-2, sx=mx-(sw>>1)+1;
-    px(sx,mt+1,sw,sh,sc); px(sx+1+belly,mt+2,sw-2,sh-3,sL); px(sx,mt+sh,sw,1,sD);
-    px(mx-(yw>>1),mt+sh+1,yw+2,1,'#3a2414');                           // the boom below
-    mark(mx+1,mt+1+(sh>>1),sw,sh);
-  };
-  const belly=Math.round(Math.sin(t*1.3)*1);
-  if(eng==='eng_lateen'){                                               // one short mast, a long slanted yard, a triangle of canvas
-    const mx=at(0.55), mh=MH-4, mt=deck(0.55)-mh;
-    px(mx,mt,2,mh,'#3a2414');
-    const y0=mt+2, y1=deck(0.55)-3;                                     // the yard runs from high aft to low forward
-    const N=q(.55); for(let s=0;s<=N;s++){ const xx=mx+1+Math.round((s-Math.round(N*.36))*dir), yy=Math.round(y0+(y1-y0)*s/N*0.55); px(xx,yy,1,1,'#3a2414');
-      const foot=deck(0.55)-3, top=yy+1; if(s>1&&s<N-1) px(xx,top,1,Math.max(0,foot-top),(s%5===0)?sD:(s<N*.55?sL:sc)); }
-    { const b0=mx+1-Math.round(N*.32)*dir, b1=mx+1+Math.round(N*.64)*dir; px(Math.min(b0,b1),deck(0.55)-3,Math.abs(b1-b0)+1,1,'#3a2414'); }
-    mark(mx+1+3*dir,mt+Math.round(mh*0.55),10,12);
-    pen(mx,mt);
-  } else if(eng==='eng_double'){                                        // two masts, two square sails
-    const KZ=k; [[0.36,0.82],[0.66,1]].forEach(([u,k])=>{ const mx=at(u), mh=Math.round(MH*k), mt=deck(u)-mh;
-      px(mx,mt,2,mh,'#3a2414'); square(mx,mt+3,Math.round(16*k*KZ),Math.round(mh*0.55),belly); pen(mx,mt); });
-  } else {                                                              // oars and galley: one mast, a square sail
-    const KZ=k, big=eng==='eng_galley', mx=at(0.55), mh=big?MH+2:MH-3, mt=deck(0.55)-mh;
-    px(mx,mt,2,mh,'#3a2414'); square(mx,mt+3,Math.round((big?20:15)*KZ),Math.round(mh*(big?0.6:0.55)),belly); pen(mx,mt);
-    if(big){ px(mx-1,mt-4,4,4,'#e8e0cf'); px(mx,mt-4,2,4,'#b03028'); px(mx-1,mt-3,4,1,'#b03028'); }   // the pilgrim's cross at the masthead
-  }
-  // the stays, bow and stern to the masthead
-  const mxs = eng==='eng_double' ? [[at(0.36),deck(0.36)-Math.round(MH*0.82)],[at(0.66),deck(0.66)-MH]]
-            : [[at(0.55), deck(0.55)-(eng==='eng_lateen'?MH-4:eng==='eng_galley'?MH+2:MH-3)]];
-  const last=mxs[mxs.length-1];
-  ctx.globalAlpha=0.7; line(last[0]+1,last[1],at(1),deck(1),'#1e140c'); line(mxs[0][0]+1,mxs[0][1],at(0.02),deck(0.02),'#1e140c'); ctx.globalAlpha=1;
-
-  // ── the oars ──
-  if(eng==='eng_oar' || eng==='eng_galley'){
-    const n=eng==='eng_galley'?(L>=46?5:4):1, st=moving?Math.sin(t*6):0.3;
-    for(let k=0;k<n;k++){ const u=eng==='eng_galley'?0.24+k*(0.6/n):0.4, ox=at(u), oy=deck(u)+2;
-      const dx=Math.round(st*3)*dir;
-      line(ox,oy,ox-dx-dir*2,Yw+3,'#8a6138');
-      px(ox-dx-dir*2-1,Yw+2,3,2,'#c8a060');                           // the blade in the water
-      if(moving && st>0.6) { ctx.globalAlpha=.6; px(ox-dx-dir*2-2,Yw+1,5,1,'#e8f2fa'); ctx.globalAlpha=1; }
-    }
-  }
-
-  // ── the figurehead at the prow ──
-  const fid=fig&&fig.id, bx=at(1), by=deck(1)+2;
-  if(fid==='fig_lamb'){ px(bx+(dir>0?0:-3),by-1,4,3,'#e8e0cf'); px(bx+(dir>0?0:-3),by-1,4,1,'#fbf6e6'); px(bx+(dir>0?3:-4),by-2,2,2,'#e8e0cf'); px(bx+(dir>0?4:-4),by-1,1,1,'#2a2228'); }
-  if(fid==='fig_lion'){ px(bx+(dir>0?-1:-3),by-3,4,5,'#a8842a'); px(bx+(dir>0?0:-3),by-2,3,3,'#e8c25a'); px(bx+(dir>0?2:-4),by-1,2,2,'#f0d98a'); px(bx+(dir>0?3:-4),by,1,1,'#5a3a10'); }
-  if(fid==='fig_dove'){ const fl=Math.sin(t*3)>0?0:1; px(bx+(dir>0?0:-3),by-1,4,2,'#ffffff'); px(bx+(dir>0?3:-4),by-2,2,2,'#ffffff'); px(bx+(dir>0?5:-5),by-1,1,1,'#e8a040');
-    px(bx+(dir>0?-1:0),by-4+fl,3,3,'#eef2f8'); px(bx+(dir>0?0:-1),by-5+fl,2,1,'#ffffff'); }
-
-  // ── the knight at the tiller, aft ──
-  const kx=at(0.16)-(dir>0?3:2), ky=deck(0.16)-8;
-  px(kx,ky+3,6,5,'#3b6fd4'); px(dir>0?kx:kx+4,ky+3,2,5,'#5a8ae8');     // tunic
-  px(kx,ky+7,6,1,'#c9a94a');                                            // belt
-  px(kx+1,ky-1,4,4,'#c9cdd6'); px(kx+1,ky-1,4,1,'#eef0f4');            // helm
-  px(dir>0?kx+4:kx+1,ky+1,1,1,'#1a2740');                               // the visor slit, looking forward
-  const pf=Math.round(Math.sin(t*4)*1);
-  px(dir>0?kx-1:kx+5,ky-2+pf,3,1,'#e8452f'); px(dir>0?kx-2:kx+6,ky-1+pf,2,1,'#c8341f');   // the plume, streaming aft
-  px(dir>0?kx+5:kx-1,ky+5,2,1,'#c9cdd6');                               // his hand forward…
-  px(dir>0?kx-1:kx+6,ky+5,1,2,'#c9cdd6');                               // …and the other on the tiller
-  const tx0=Math.min(at(0.02),dir>0?kx-1:kx+6), tx1=Math.max(at(0.02),dir>0?kx-1:kx+6); px(tx0,ky+6,tx1-tx0+1,1,'#5a3a1e');
-
-  // ── the wake ──
-  if(moving){ const w=Math.sin(t*3); ctx.globalAlpha=.5; for(let k=0;k<3;k++) px(at(-0.05-k*0.08)-(dir>0?3:0),Yw+1-(k&1),4-k,1,'#e8f2fa');
-    px(at(0.97)+dir*2-(dir>0?0:3),Yw-Math.round(Math.abs(w)*2),4,1,'#e8f2fa'); ctx.globalAlpha=1; }
-}
-
-// ── the boat in play: the outermost drawKnight wrapper ──
-// Zak (2026-10-06): "upgrade the Knight's Boat, maybe make it a slightly smaller version of the smaller boats in the
-// capital's dock — so you can clearly see the upgrades and customizations made in the mini game on your real boat",
-// then "40 is good!!". While he sails, this draws the cutter from the parts fitted at the boat-race dock
-// (player.boatInv.equipped, BOAT_CATALOG). It skips the character outline on purpose, like the harbour ships it is
-// modelled on: the outline's 60×60 box would clip the mast, and the moving canvas would churn its cache.
-// _legacy: the old one-tile strip still sits in drawKnight's `if(player.boating)` branch; delete this wrapper to revert.
-const KB_DEFAULT = { hull:'hull_oak', sail:'sail_plain', figure:'fig_none', engine:'eng_oar', keel:'keel_flat' };
-function kbParts(){                                                       // the fitted parts, whole catalog entries
-  const eq=(player.boatInv && player.boatInv.equipped) || {}, C=(typeof BOAT_CATALOG!=='undefined')?BOAT_CATALOG:[];
-  const find=(id)=>{ for(let i=0;i<C.length;i++) if(C[i].id===id) return C[i]; return null; };
-  const out={}; for(const k in KB_DEFAULT) out[k]=find(eq[k])||find(KB_DEFAULT[k])||{id:KB_DEFAULT[k],color:k==='hull'?'#6b3a23':'#e8e0cf'};
-  return out; }
-function kbFacing(){                                                      // bow left or right; sailing north or south keeps the last
-  const d=player.dir; if(d==='left') player._boatFace=-1; else if(d==='right') player._boatFace=1;
-  return player._boatFace===-1 ? -1 : 1; }
-function drawKnightBoat(x,y){ kbDrawBoat(x+8-(KB_L>>1), y+13, kbFacing(), kbParts(), performance.now()/1000, !!player.moving, KB_L); }
-const _kbRawKnight = drawKnight;
-drawKnight = function(x,y){ if(player.boating) return drawKnightBoat(x,y); return _kbRawKnight.apply(this, arguments); };
 
 function drawTile(t,x,y,tx,ty){
   // ── THE HOMESTEAD FENCE AND GATE ──
@@ -32605,8 +32463,6 @@ function drawSwingArc(x,y,o){
 function drawKnight(x,y){
   if(player.boating){
     // ── YOUR OWN BOAT, OUT ON THE WATER ──────────────────────────────────────
-    // _legacy (2026-10-06-kb): superseded by drawKnightBoat (the little royal cutter), which the outermost
-    //   drawKnight wrapper calls while he sails. This branch is no longer reached; it stays as the revert path.
     // _legacy: six fixed rectangles with a hardcoded white sail and a tan square
     //   for the knight. Every part you had bought and fitted — the pitch-black
     //   hull, the gilded sail, the lion figurehead — showed only inside a race
@@ -36496,7 +36352,7 @@ bootLogo.src=BOOT_LOGO_SRC;
 const boot = { done:false, phase:'logo', t:0, cursor:0, fade:0, fin:0, fading:null, slashed:false, confirmed:false };
 const BOOT_W=240, BOOT_H=160;
 // Bumped on every export. Shown on the title screen so a cached copy is obvious.
-const BUILD_TAG = '2026-10-06-kb';  // ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
+const BUILD_TAG = '2026-10-06-kp5';  // 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
 
 // ── tiny Web Audio kit (game has no audio system yet; kept self-contained) ──
 let bootAC=null;
