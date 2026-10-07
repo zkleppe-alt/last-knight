@@ -7171,7 +7171,7 @@ function renderMenu(){
       + `<div class="gm-stat"><span>★ Skill Points</span><b style="color:#7a5c28">${player.skillPoints}</b></div>`
       + `<div class="gm-sectitle">Equipped</div>`
       + `<div class="gm-stat"><span>${w.emoji} Weapon</span><b>${w.name} <span style="font-size:7px;color:#8fb">[${w.type}]</span></b></div>`
-      + `<div class="gm-stat"><span>✦ Combo Special</span><b style="color:#7a5c28">${groundPoundFor(player.equip&&player.equip.weapon).name}</b></div>`
+      + `<div class="gm-stat"><span>✦ Combo Special</span><b style="color:#7a5c28">${SPECIALS[w.special||'flurry'].name}</b></div>`
       + `<div class="gm-stat"><span>${a.emoji} Armor</span><b>${a.name}</b></div>`;
   } else if(menu.tab===TAB.skills){ // SKILLS
     html += `<div class="gm-stat"><span>★ Skill Points to spend</span><b style="color:#7a5c28">${player.skillPoints}</b></div>`;
@@ -17572,9 +17572,9 @@ function resolveSwing(type){
 function doSpecial(){
   if(place.kind!=="overworld" && place.kind!=="dungeon" && place.kind!=="abaddon" && place.kind!=="portalworld" && !(place.kind==="interior" && place.id==="mistthrone" && (mistThrone.fighting||mistThrone.lastStand)) && !sunTowerCombat()) return;
   const wId = player.equip ? player.equip.weapon : 'none_w';
-  const sp = groundPoundFor(wId);   // one Ground Pound for every weapon (_legacy: SPECIALS[(EQUIP[wId]&&EQUIP[wId].special)||'flurry'])
+  const sp = SPECIALS[(EQUIP[wId]&&EQUIP[wId].special)||'flurry'];
   player.swing = 22; player.swingDir = player.dir; player.swingType='special';
-  player.specialFx = 0; player.specialColor = sp.color;   // the Ground Pound draws its own ring on the ground (_legacy: specialFx=22, the flat burst circle)
+  player.specialFx = 22; player.specialColor = sp.color;
   const kcx=player.x+TILE/2, kcy=player.y+TILE/2;
   const reach = TILE*sp.radius;
   const fv = player.dir==='up'?[0,-1] : player.dir==='down'?[0,1] : player.dir==='left'?[-1,0] : [1,0];
@@ -17615,7 +17615,7 @@ function doSpecial(){
       }
       if(Math.hypot(a.x+TILE/2-kcx,a.y+TILE/2-kcy)>reach)return; a.hp-=Math.max(1,Math.round(player.atk*sp.mult)); a.hurt=8; hits++; if(a.hp<=0)a.alive=false; }); }
     showBanner(`✦ ${sp.name}!`+(hits?` <span style="font-size:7px">×${hits}</span>`:''), 700);
-  }, 180);   // it lands when he does — the slam, halfway through the leap (_legacy: 100)
+  }, 100);
 }
 // ── DYNAMIC Ⓑ: hold to BLOCK (75% damage turned aside, slowed steps),
 //    double-tap to DODGE-dash. Overlays & surf keep their old tap behavior.
@@ -18977,11 +18977,6 @@ function draw(){
   const mx=m.w*TILE-vw, my=m.h*TILE-vh;
   camX = mx<0 ? mx/2 : Math.max(0,Math.min(camX,mx));
   camY = my<0 ? my/2 : Math.max(0,Math.min(camY,my));
-  // whole-pixel camera (Zak 2026-10-05: "some buildings shimmer when I walk up and down"): a fractional
-  // camera put the tiles and the buildings on differently-rounded pixels, so they slid a pixel against
-  // each other as the knight walked. The Deep already did this (uwDraw).
-  camX=Math.round(camX); camY=Math.round(camY);
-  { const s=gpShake(); camX+=s[0]; camY+=s[1]; }   // the Ground Pound shakes the ground
   ctx.clearRect(0,0,VW,VH);
   if(place.kind==='underwater'){ uwDraw(); return; }   // 🌊 THE DEEP (menus draw through here too)
   // ── ABADDON arena ──
@@ -28460,72 +28455,22 @@ function homesteadNightGlow(camX,camY){
 //  and transform still apply, because the finished sprite is blitted through them.
 //  (This is why `ctx` is a `let`: the draw is pointed at the offscreen canvas for the moment.)
 // ════════════════════════════════════════════════════════════════
-// 2026-10-05 (Zak: "the game play since we updated the animation is very glitchy — also maybe we
-// could thin the black outline just slightly"):
-//  • CACHED. While a character draws into the offscreen canvas, every drawing call is also
-//    hashed (a recording tee in front of the real context). The same picture gives the same
-//    hash, so its finished, outlined canvas is kept and simply stamped again — one drawImage
-//    instead of the six-step compose. A walk cycle is a handful of pictures, so nearly every
-//    frame is a hit. Anything the hash can't see (an image drawn in, pixels read back) skips
-//    the cache and composes as before. Each character still draws exactly once per frame.
-//  • WHOLE PIXELS. Characters land on whole pixels (as the tiles do), which keeps them crisp
-//    and makes the picture repeat (a moving figure's sub-pixel offset would never match twice).
-//  • THINNER. The outline is a softer, part-transparent ink rather than solid black.
-//  (_legacy: solid '#120c18', composed fresh for every character every frame, at sub-pixel x/y.)
-const SPR_OUTLINE = 'rgba(18,12,24,0.62)';
-const _SPR = { pad:20, size:60, s:null, o:null, sg:null, og:null, depth:0, on:true, cache:new Map(), cap:360, hits:0, misses:0 };
-const _sprRec = { h:0, ok:true };
-function _sprMix(v){ let h=_sprRec.h;
-  if(typeof v==='number'){ h=Math.imul(h^((v*64)|0),16777619); }
-  else if(typeof v==='string'){ for(let i=0;i<v.length;i++) h=Math.imul(h^v.charCodeAt(i),16777619); }
-  else if(typeof v==='boolean'){ h=Math.imul(h^(v?7:3),16777619); }
-  else if(v && v._sprG!==undefined){ h=Math.imul(h^v._sprG,16777619); }
-  else if(v!==undefined && v!==null) _sprRec.ok=false;
-  _sprRec.h=h>>>0; }
-let _sprTee=null;
-function _sprMakeTee(g){   // a stand-in context: hashes each call, then passes it to the real one
-  const SETS=['fillStyle','strokeStyle','globalAlpha','lineWidth','font','textAlign','textBaseline','globalCompositeOperation','lineCap','lineJoin','imageSmoothingEnabled','shadowBlur','shadowColor','shadowOffsetX','shadowOffsetY','miterLimit','filter','direction','lineDashOffset'];
-  const BLIND=new Set(['drawImage','getImageData','putImageData','createPattern','createImageData']);
-  let gid=0;
-  const t={};
-  return new Proxy(t,{
-    get(_,k){
-      if(k==='canvas') return g.canvas;
-      if(SETS.indexOf(k)>=0) return g[k];
-      const f=g[k];
-      if(typeof f!=='function') return f;
-      if(k==='createRadialGradient'||k==='createLinearGradient'){ return function(){ _sprMix(k); for(const a of arguments) _sprMix(a);
-        const gr=f.apply(g,arguments), id=(++gid*2654435761)>>>0; gr._sprG=id; const add=gr.addColorStop.bind(gr); gr.addColorStop=(o,c)=>{ _sprMix(id); _sprMix(o); _sprMix(c); add(o,c); }; _sprMix(id); return gr; }; }
-      if(BLIND.has(k)) return function(){ _sprRec.ok=false; return f.apply(g,arguments); };
-      if(k==='measureText'||k==='isPointInPath'||k==='getTransform'||k==='getLineDash') return function(){ return f.apply(g,arguments); };
-      return function(){ _sprMix(k); for(let i=0;i<arguments.length;i++) _sprMix(arguments[i]); return f.apply(g,arguments); };
-    },
-    set(_,k,v){ _sprMix(k); _sprMix(v); g[k]=v; return true; }
-  });
-}
+const SPR_OUTLINE = '#120c18';
+const _SPR = { pad:20, size:60, s:null, o:null, sg:null, og:null, depth:0, on:true };
 function _sprPolish(raw, self, args){
   if(!_SPR.on || _SPR.depth>0 || typeof document==='undefined') return raw.apply(self, args);   // already inside one: draw straight through
-  if(!_SPR.s){ for(const k of ['s','o']){ const c=document.createElement('canvas'); c.width=_SPR.size; c.height=_SPR.size; _SPR[k]=c; _SPR[k+'g']=c.getContext('2d'); } _sprTee=_sprMakeTee(_SPR.sg); }
+  if(!_SPR.s){ for(const k of ['s','o']){ const c=document.createElement('canvas'); c.width=_SPR.size; c.height=_SPR.size; _SPR[k]=c; _SPR[k+'g']=c.getContext('2d'); } }
   const x=+args[0], y=+args[1]; if(!isFinite(x)||!isFinite(y)) return raw.apply(self, args);
-  const P=_SPR.pad, ix=Math.round(x), iy=Math.round(y), sg=_SPR.sg, Z=_SPR.size, main=ctx;
+  const P=_SPR.pad, ix=Math.floor(x), iy=Math.floor(y), sg=_SPR.sg, og=_SPR.og, Z=_SPR.size, main=ctx;
   sg.setTransform(1,0,0,1,0,0); sg.globalAlpha=1; sg.globalCompositeOperation='source-over'; sg.clearRect(0,0,Z,Z); sg.imageSmoothingEnabled=false;
-  const a2=Array.prototype.slice.call(args); a2[0]=P; a2[1]=P;
-  _sprRec.h=2166136261; _sprRec.ok=true; _sprMix(raw.name||'');
-  let r; _SPR.depth++; ctx=_sprTee;
+  const a2=Array.prototype.slice.call(args); a2[0]=P+(x-ix); a2[1]=P+(y-iy);
+  let r; _SPR.depth++; ctx=sg;
   try{ r=raw.apply(self, a2); } finally{ ctx=main; _SPR.depth--; }
-  const key=_sprRec.ok ? _sprRec.h : 0, C=_SPR.cache;
-  let out=key && C.get(key);
-  if(out){ _SPR.hits++; C.delete(key); C.set(key,out); }                 // keep it fresh in the cache
-  else {
-    _SPR.misses++;
-    if(key){ out=document.createElement('canvas'); out.width=Z; out.height=Z; } else out=_SPR.o;
-    const og=out.getContext('2d'); og.setTransform(1,0,0,1,0,0); og.globalAlpha=1; og.globalCompositeOperation='source-over'; og.clearRect(0,0,Z,Z); og.imageSmoothingEnabled=false;
-    og.drawImage(_SPR.s,-1,0); og.drawImage(_SPR.s,1,0); og.drawImage(_SPR.s,0,-1); og.drawImage(_SPR.s,0,1);
-    og.globalCompositeOperation='source-in'; og.fillStyle=SPR_OUTLINE; og.fillRect(0,0,Z,Z);
-    og.globalCompositeOperation='source-over'; og.drawImage(_SPR.s,0,0);
-    if(key){ C.set(key,out); if(C.size>_SPR.cap){ const k0=C.keys().next().value; C.delete(k0); } }
-  }
-  const sm=main.imageSmoothingEnabled; main.imageSmoothingEnabled=false; main.drawImage(out, ix-P, iy-P); main.imageSmoothingEnabled=sm;
+  og.setTransform(1,0,0,1,0,0); og.globalAlpha=1; og.globalCompositeOperation='source-over'; og.clearRect(0,0,Z,Z); og.imageSmoothingEnabled=false;
+  og.drawImage(_SPR.s,-1,0); og.drawImage(_SPR.s,1,0); og.drawImage(_SPR.s,0,-1); og.drawImage(_SPR.s,0,1);
+  og.globalCompositeOperation='source-in'; og.fillStyle=SPR_OUTLINE; og.fillRect(0,0,Z,Z);
+  og.globalCompositeOperation='source-over'; og.drawImage(_SPR.s,0,0);
+  const sm=main.imageSmoothingEnabled; main.imageSmoothingEnabled=false; main.drawImage(_SPR.o, ix-P, iy-P); main.imageSmoothingEnabled=sm;
   return r;
 }
 // the characters that wear it (each keeps its own arguments; x,y first)
@@ -28545,289 +28490,6 @@ const _sprRaw = {};
   // their outline goes in with their own pass (sprite upgrade step 2, group 6)
   if(typeof drawKeepKnight==='function'){ _sprRaw.drawKeepKnight=drawKeepKnight; drawKeepKnight=wrap(_sprRaw.drawKeepKnight); }
 })();
-
-// ── buildings and props draw in their own local space (Zak 2026-10-05: "In Hearthvale the brick buildings
-//    shimmer when I walk north and south"). Many building and prop painters key a pattern on the SCREEN
-//    pixel — a brick course staggered by ((y>>2)%2), a plank shade by (x>>2)%2, a straw grain hashed on the
-//    roof's screen row — so as the camera moved, the bricks re-laid themselves every few pixels and the
-//    wall shimmered. Each is now drawn with its origin moved to (0,0) by a translate, so every pattern is
-//    keyed to the building itself and stands still; the pixels land exactly where they did.
-const _bldRaw = { drawBuilding, drawDecor };
-(function localSpace(){
-  const wrap=(raw)=>function(o,ox,oy){
-    if(!isFinite(ox)||!isFinite(oy)) return raw.apply(this, arguments);
-    const X=Math.round(ox), Y=Math.round(oy), a=Array.prototype.slice.call(arguments); a[1]=0; a[2]=0;
-    ctx.save(); ctx.translate(X,Y); try{ return raw.apply(this, a); } finally{ ctx.restore(); } };
-  drawBuilding=wrap(_bldRaw.drawBuilding);
-  drawDecor=wrap(_bldRaw.drawDecor);
-})();
-
-// ════════════════════════════════════════════════════════════════
-//  ⚔ THE WEAPONS, REDRAWN — AND THE GROUND POUND (2026-10-06)
-//  Zak: "let's shift to revamp the weapons instead", "Can we upgrade their appearance too? And the
-//  special attack, maybe we make it a universal ground pound that has an area effect that pushes
-//  back enemies? Instead of the weapon swinging your character slams the weapon or jumps onto the
-//  ground", "I like those! Can we keep the weapon in the left hand though not in the middle? I like
-//  that he's left hand dominate".
-//  • The held weapons are drawn on WHOLE pixels. The old art was drawn in half-pixels (_wq), which
-//    the canvas smears into a grey blur; each weapon now has its own clear silhouette and detail
-//    (wrapped grips, fullers, pommel gems, rust on the old blade, Gideon's trumpet bell, the
-//    hammer's bands and spike, the shepherd's crook and ribbon, the bow's gold tips).
-//  • A swing leaves a bold crescent trail in the weapon's own colour instead of faint ghost copies.
-//  • The combo special is one Ground Pound for every weapon: he leaps with the weapon raised in his
-//    left hand, drives it into the ground, and a shockwave rolls out all round him, hurting and
-//    throwing back every foe in reach; the screen shakes. The ring takes the weapon's colour, and
-//    the holy weapons (the old Radiant Burst) still heal a little.
-//  (_legacy: the half-pixel drawWeaponDown/Left/Up and the ghosted drawSwingArc stay below this,
-//   unused; SPECIALS keeps Flurry/Holy Slash/Earthshaker/Radiant Burst for reference.)
-// ════════════════════════════════════════════════════════════════
-const GROUND_POUND = { name:'Ground Pound', mult:1.6, radius:2.3, knock:14, spin:true };
-function groundPoundFor(wId){
-  const e=EQUIP[wId]||{}, holy=e.special==='radiant';
-  const color = holy ? '#fff7c8' : (e.type==='heavy' ? '#ffae5a' : (e.special==='flurry' ? '#fff0b0' : '#ffe87a'));
-  return Object.assign({}, GROUND_POUND, { color, heal: holy ? 12 : 0 });
-}
-(function weaponsRedrawn(){
-const _wIds=new Map(); const idOf=(w)=>{ if(!_wIds.size) for(const k in WEAPON_ART) _wIds.set(WEAPON_ART[k],k); return _wIds.get(w)||'rusty'; };
-// the blade's look per weapon: len (px), thickness, and its features
-const W2SPEC={
-  // Version B, Zak's pick (2026-10-06: "I think I like the B version weapons the best")
-  // (_legacy A: rusty 5 notched · short 5 · iron 7 guard 3 · great 9 th2 guard 4 · Gideon 7 bell · holy 8 th2 guard 4)
-  rusty:       { len:4, th:1, notch:true, rust:true, broken:true },          // snapped off short
-  shortsword:  { len:5, th:2, leaf:true },                                    // a broad leaf-bladed gladius
-  ironsword:   { len:8, th:1, guard:4, grip:'#3a5a9a' },                      // a longsword, blue-wrapped
-  greatsword:  { len:10, th:2, guard:5, gem:'#c0392e', wavy:true },          // a flame-edged zweihander
-  sword_gideon:{ len:7, th:2, guard:3, bell:true, gem:'#f2c14e', gild:true },// gilded along its edge
-  holyblade:   { len:9, th:2, guard:4, glow:true, gem:'#8ad8ea', wings:true },// winged guard
-};
-W2SPEC_PUB = W2SPEC;   // the resting pose (🛡 module) reads the same blades
-// a diagonal blade from the hand (hx,hy) up and to the right, step (+1,-1)
-function bladeDiag(P,p,hx,hy,s){
-  P(hx,hy+1,1,1,s.grip||p.GR); P(hx,hy+2,1,1,p.GRD); P(hx,hy+3,1,1,p.P||p.G); if(s.gem) P(hx,hy+3,1,1,s.gem);   // a wrapped grip, the pommel (a gem in the finest)
-  const g=s.guard||2; for(let i=-g+1;i<g;i++) P(hx+i,hy+i,1,1,i===0?p.G:(Math.abs(i)===g-1?p.GD:p.G));   // the guard, across the blade
-  if(s.wings){ P(hx-g,hy-g+2,1,2,p.G); P(hx+g-1,hy+g-3,2,1,p.G); P(hx-g,hy-g+1,1,1,'#ffffff'); P(hx+g,hy+g-4,1,1,'#ffffff'); }
-  for(let i=1;i<=s.len;i++){ const x=hx+i, y=hy-i;
-    P(x,y,1,1,p.B); P(x-1,y,1,1,p.H);                                                // edge-lit blade, two pixels wide on the diagonal
-    if(s.th>1){ P(x,y+1,1,1,p.D); if(i>1&&i<s.len-1) P(x,y,1,1,p.D); }                // a fuller down the broad blades
-    if(s.notch && (i===2||i===4)) P(x,y,1,1,p.E);
-    if(s.rust && i%2) P(x-1,y,1,1,'#9a6a3a');
-    if(s.leaf && i>=2 && i<=3){ P(x+1,y+1,1,1,p.B); P(x-1,y-1,1,1,p.H); }
-    if(s.wavy && i%2) P(x+1,y+1,1,1,p.D);
-    if(s.gild) P(x,y+1,1,1,p.G); }
-  const tx=hx+s.len+1, ty=hy-s.len-1; if(s.broken){ P(tx-1,ty+1,1,1,p.E); } else P(tx,ty,1,1,p.H);   // the point (the old blade snapped off)
-  if(s.bell){ P(tx-1,ty-2,3,1,p.G); P(tx,ty-1,2,1,p.G); P(tx+1,ty-2,1,1,'#fff6c0'); }     // Gideon: the trumpet's bell at the tip
-}
-function bladeLeft(P,p,hx,hy,s){   // horizontal, pointing left from the hand
-  P(hx,hy,2,1,p.GR); P(hx+2,hy,1,1,p.P||p.G);
-  const g=s.guard||2; P(hx-1,hy-g+1,1,g*2-1,p.G); P(hx-1,hy+g-1,1,1,p.GD);
-  for(let i=2;i<=s.len+1;i++){ const x=hx-i; P(x,hy,1,1,p.B); P(x,hy-1,1,1,p.H); if(s.th>1) P(x,hy+1,1,1,p.D); if(s.notch&&(i===3||i===5)) P(x,hy-1,1,1,p.E); }
-  const tx=hx-s.len-2; P(tx,hy,1,1,p.H); if(s.th>1) P(tx+1,hy+1,1,1,p.D);
-  if(s.bell){ P(tx-1,hy-2,1,5,p.G); P(tx,hy-1,1,3,p.G); P(tx-1,hy-2,1,1,'#fff6c0'); }
-}
-function bladeUp(P,p,cx,s){   // over the shoulder, from behind: only the top shows above him
-  const top=7-Math.min(s.len,8);
-  P(cx,top,1,8-top,p.B); P(cx,top,1,1,p.H); if(s.th>1) P(cx+1,top+1,1,7-top,p.D);
-  P(cx-1,7,3,1,p.G);
-  if(s.bell){ P(cx-1,top-1,3,1,p.G); P(cx,top-2,1,1,'#fff6c0'); }
-}
-drawWeaponDown=function(P,w){ const id=idOf(w), p=w.pal, s=W2SPEC[id], hx=13, hy=9;
-  if(s){ bladeDiag(P,p,hx,hy,s); return; }
-  if(id==='none_w') return;
-  if(id==='ring_lydia'){ P(13,10,2,1,p.B); P(13,9,1,1,'#8ad8ea'); P(14,8,1,1,'#ffffff'); P(15,9,1,1,'#ffffff'); return; }
-  if(id==='gaunt_caleb'){ P(12,8,4,4,p.B); P(12,8,4,1,p.H); P(12,11,4,1,p.E); P(15,9,1,2,p.D); P(13,9,1,1,'#ffffff'); P(16,10,1,1,'#bfeaf6'); return; }   // a tide-blue fist
-  if(id==='warhammer'){ for(let i=0;i<6;i++){ P(hx+i,hy+1-i,1,1,p.GR); } P(hx,hy+2,1,1,p.GRD);
-    P(hx+3,hy-9,7,4,p.B); P(hx+3,hy-9,7,1,p.H); P(hx+3,hy-6,7,1,p.E); P(hx+9,hy-9,1,4,p.D); P(hx+3,hy-9,1,4,p.D); P(hx+5,hy-8,3,2,'#c9a94a'); P(hx+6,hy-8,1,1,'#fff0b0'); return; }   // the head, square to the haft
-  if(id==='staff_aiden'){ for(let i=0;i<9;i++) P(hx+((i*0.45)|0),hy+3-i,1,1,i%3?p.B:p.D); const tx=hx+4, ty=hy-6;
-    P(tx,ty-1,1,1,p.B); P(tx+1,ty-2,2,1,p.B); P(tx+3,ty-1,1,2,p.B); P(tx+2,ty+1,1,1,p.D); P(tx+1,ty-2,1,1,p.H); P(tx-1,ty+1,2,1,'#f4f0e4'); P(tx-1,ty+2,1,1,'#ffffff'); P(tx+2,ty-3,1,1,'#fff7c8'); P(tx+4,ty-1,1,1,'#fff7c8'); return; }   // a tuft of white wool on the crook, a glint of light   // the shepherd's crook
-  if(id==='bow_samuel'){ const bx=15; P(bx,2,1,1,p.D); P(bx+1,3,1,2,p.B); P(bx+2,5,1,5,p.B); P(bx+1,10,1,2,p.B); P(bx,12,1,1,p.D); P(bx+2,6,1,2,p.H);
-    P(bx,3,1,9,p.ST); P(bx+1,7,2,1,p.G); P(bx-1,1,2,1,'#e8c25a'); P(bx-1,13,2,1,'#e8c25a'); P(bx+3,7,2,1,'#e8c25a'); P(bx+5,7,1,1,'#fff7c8'); return; }
-};
-drawWeaponLeft=function(P,w){ const id=idOf(w), p=w.pal, s=W2SPEC[id], hx=1, hy=9;
-  if(s){ bladeLeft(P,p,hx,hy,s); return; }
-  if(id==='none_w') return;
-  if(id==='ring_lydia'){ P(0,9,2,1,p.B); P(0,8,1,1,'#8ad8ea'); P(-1,7,1,1,'#ffffff'); return; }
-  if(id==='gaunt_caleb'){ P(-2,7,4,4,p.B); P(-2,7,4,1,p.H); P(-2,10,4,1,p.E); P(-2,8,1,2,p.D); P(-1,8,1,1,'#ffffff'); return; }
-  if(id==='warhammer'){ for(let i=0;i<6;i++) P(hx-i,hy,1,1,p.GR); P(hx-9,hy-3,3,6,p.B); P(hx-9,hy-3,3,1,p.H); P(hx-9,hy+2,3,1,p.E); P(hx-9,hy-3,1,6,p.D); return; }
-  if(id==='staff_aiden'){ for(let i=0;i<9;i++) P(hx-i,hy-((i*0.3)|0),1,1,i%3?p.B:p.D); P(hx-10,hy-4,1,2,p.B); P(hx-9,hy-5,2,1,p.B); P(hx-7,hy-4,1,1,p.B); P(hx-9,hy-5,1,1,p.H); return; }
-  if(id==='bow_samuel'){ P(hx-1,hy-6,1,1,p.D); P(hx-2,hy-5,1,2,p.B); P(hx-3,hy-3,1,6,p.B); P(hx-2,hy+3,1,2,p.B); P(hx-1,hy+5,1,1,p.D); P(hx-3,hy-2,1,2,p.H);
-    P(hx-1,hy-5,1,10,p.ST); P(hx-3,hy,2,1,p.G); return; }
-};
-drawWeaponUp=function(P,w){ const id=idOf(w), p=w.pal, s=W2SPEC[id], cx=3;
-  if(s){ bladeUp(P,p,cx,s); return; }
-  if(id==='warhammer'){ P(cx,3,1,5,p.GR); P(cx-2,0,5,3,p.B); P(cx-2,0,5,1,p.H); P(cx-2,2,5,1,p.E); return; }
-  if(id==='staff_aiden'){ P(cx,1,1,7,p.B); P(cx+1,0,2,1,p.B); P(cx+3,1,1,2,p.B); P(cx+1,0,1,1,p.H); return; }
-  if(id==='bow_samuel'){ P(cx,1,1,1,p.D); P(cx-1,2,1,5,p.B); P(cx,7,1,1,p.D); P(cx+1,2,1,5,p.ST); return; }
-};
-// the swing: a bold crescent trail behind the blade, then the blade itself
-const _rawSwing=drawSwingArc;
-drawSwingArc=function(x,y,o){
-  const cfg=SWING[player.swingType]||SWING.light, dur=Math.max(1,cfg.dur);
-  const raw=player.swing>dur?0:1-(player.swing/dur), t=1-Math.pow(1-raw,2.2);
-  const base=_SWING_BASE[player.swingDir||player.dir||'down']||0, WPN=weaponArtFor(player.equip&&player.equip.weapon);
-  if(WPN.fam==='bow') return _rawSwing(x,y,o);
-  const vHalf=cfg.half*0.72, cx=x+8, cy=y+8+o, a0=base-vHalf, a1=base-vHalf+2*vHalf*t;
-  const s=W2SPEC[idOf(WPN)]||{len:5}, R=5+(s.len||5)+2, heavy=cfg===SWING.heavy;
-  // the crescent: in the blade's own colour, brightest at the leading edge, fading behind
-  if(t>0.02 && !beastForm()){
-    const n=10; ctx.save(); ctx.lineCap='butt';
-    for(let i=0;i<n;i++){ const u0=i/n, u1=(i+1)/n; const aa=a0+(a1-a0)*u0, ab=a0+(a1-a0)*u1; ctx.globalAlpha=0.08+0.55*u1*u1;
-      ctx.strokeStyle=WPN.pal.H; ctx.lineWidth=heavy?4:3; ctx.beginPath(); ctx.arc(cx,cy,R-1,Math.PI+aa,Math.PI+ab); ctx.stroke();
-      ctx.strokeStyle=WPN.glow||'#ffffff'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(cx,cy,R+0.5,Math.PI+aa,Math.PI+ab); ctx.stroke(); }
-    ctx.restore(); }
-  // the blade, at the end of the arc (no ghost copies — the crescent does that work now)
-  ctx.save(); ctx.translate(cx,cy); ctx.rotate(a1); ctx.translate(-5,0);
-  const P=(lx,ly,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(Math.round(lx-1),Math.round(ly-9),w,h); };
-  if(WPN.fam==='fist'){ const p=WPN.pal; P(-2,8,4,3,p.B); P(-2,8,4,1,p.H); }
-  else if(!beastForm()) drawWeaponLeft(P,WPN);
-  ctx.restore(); ctx.globalAlpha=1;
-};
-})();
-
-// ── the Ground Pound, drawn: the leap, the slam, the ring on the ground, the shake ──
-const GP_FR = 22;                                      // the special's length in frames (player.swing counts it down)
-const _gpPhase = ()=> (player.swingType==='special' && player.swing>0 && !player.mounted && !player.boating) ? 1-player.swing/GP_FR : -1;
-function gpShake(){ const t=_gpPhase(); if(t<0.5||t>0.75) return [0,0]; const a=Math.round(2*(1-(t-0.5)/0.25)); const s=(player.swing%2)?1:-1; return [s*a, -s*Math.round(a/2)]; }
-const _gpRawKnight = drawKnight;
-drawKnight = function(x,y){
-  const t=_gpPhase(); if(t<0) return _gpRawKnight.apply(this, arguments);
-  const dir=player.dir||'down', R=GROUND_POUND.radius*TILE, col=player.specialColor||'#ffe87a';
-  const lift = t<0.12 ? 1 : (t<0.5 ? -Math.round(Math.sin((t-0.12)/0.38*Math.PI)*9) : 0);
-  const hx = dir==='down'?13 : dir==='up'?3 : dir==='left'?1 : 15;            // his LEFT hand, wherever he faces
-  const fx=x+8, fy=y+15;                                                      // his feet
-  // the ring rolling out over the ground, cracks and thrown dust
-  if(t>=0.5){ const u=(t-0.5)/0.5, r=4+u*R; ctx.save();
-    if(u<0.18){ ctx.globalAlpha=0.9*(1-u/0.18); ctx.fillStyle='#fffbe8'; ctx.beginPath(); ctx.ellipse(x+hx,fy,10,4,0,0,7); ctx.fill(); }
-    ctx.globalAlpha=0.95*(1-u); ctx.strokeStyle=col; ctx.lineWidth=u<0.5?4:3; ctx.beginPath(); ctx.ellipse(fx,fy,r,r*0.5,0,0,7); ctx.stroke();
-    ctx.strokeStyle='#ffffff'; ctx.lineWidth=1; ctx.beginPath(); ctx.ellipse(fx,fy,Math.max(1,r-2),Math.max(1,r*0.5-1),0,0,7); ctx.stroke();
-    ctx.globalAlpha=0.3*(1-u); ctx.fillStyle=col; ctx.beginPath(); ctx.ellipse(fx,fy,r,r*0.5,0,0,7); ctx.fill();
-    ctx.globalAlpha=Math.min(1,1.6*(1-u)); ctx.strokeStyle='#3a3020'; ctx.lineWidth=1;
-    for(let k=0;k<6;k++){ const a=k*Math.PI/3+0.4, L=6+Math.min(1,u*3)*6; ctx.beginPath(); ctx.moveTo(fx+Math.cos(a)*3,fy+Math.sin(a)*1.5); ctx.lineTo(fx+Math.cos(a)*L,fy+Math.sin(a)*L*0.5); ctx.stroke(); }
-    for(let k=0;k<8;k++){ const a=k*Math.PI/4; ctx.globalAlpha=0.55*(1-u); ctx.fillStyle='#d8d0b8'; ctx.beginPath(); ctx.arc(fx+Math.cos(a)*(r+2), fy+Math.sin(a)*(r+2)*0.5-2, 2+u*2, 0,7); ctx.fill(); }
-    ctx.restore(); }
-  if(lift<0){ ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(fx,fy-1,6,2,0,0,7); ctx.fill(); }   // his shadow left on the ground
-  // the body, with the held weapon put away while it is raised and driven down
-  const hide = t>=0.12 && t<0.68, A=drawWeaponDown, B=drawWeaponLeft, C=drawWeaponUp, none=function(){};
-  if(hide){ drawWeaponDown=none; drawWeaponLeft=none; drawWeaponUp=none; }
-  let r; try{ r=_gpRawKnight.call(this, x, y+lift); } finally{ if(hide){ drawWeaponDown=A; drawWeaponLeft=B; drawWeaponUp=C; } }
-  if(hide && !beastForm()){ const w=weaponArtFor(player.equip && player.equip.weapon);
-    ctx.save(); if(t<0.5){ ctx.translate(x+hx, y+lift-12); ctx.rotate(Math.PI*0.5); } else { ctx.translate(x+hx, y+6); ctx.rotate(-Math.PI*0.5); }
-    const P=(lx,ly,ww,hh,c)=>{ ctx.fillStyle=c; ctx.fillRect(Math.round(lx-1),Math.round(ly-9),ww,hh); };
-    B(P,w); ctx.restore(); }
-  return r;
-};
-
-// ════════════════════════════════════════════════════════════════
-//  🛡 THE KNIGHT AT REST, ON GUARD, AND WALKING (2026-10-06)
-//  Zak, after Link to the Past: "how the sword and shield sit … the shield pops in front when you use
-//  block", then "shift the sword down so the handle is in the knight's hand not in his shoulder. If we
-//  could just make a motion where the shield moves forward in front of him that would be sweet, and a
-//  smoother walk with arms would be rad."
-//  • AT REST his weapon hangs point-down at his side, its grip in his LEFT hand (he is left-handed):
-//    screen-right facing you, in front of him side-on, at his side from behind. A staff stands upright
-//    like a walking staff; a bow is carried at his side. Swings and the Ground Pound still draw the
-//    weapon their own way — only the resting pose changed.
-//  • ON GUARD (Ⓑ held) the shield swings round from his arm to in front of him over a few frames, and
-//    back when he lowers it. The steady yellow ring is gone; the white flash still marks a hit turned aside.
-//  • WALKING his arms swing opposite his legs, so the stride reads.
-// ════════════════════════════════════════════════════════════════
-let _wRest = null;                 // set while the knight's own body is drawing: { f, dir }
-var W2SPEC_PUB = W2SPEC_PUB || {};   // filled by the weapons module
-const _kSwing = (f)=> (f===1?1:f===3?-1:0);
-function _kShieldFwdOn(){ return !!player && (player.blocking || (player._blkT||0)>0) && !player.mounted && !player.boating && !(typeof beastForm==='function' && beastForm()); }
-(function knightAtRest(){
-  const _wIds=new Map(); const idOf=(w)=>{ if(!_wIds.size) for(const k in WEAPON_ART) _wIds.set(WEAPON_ART[k],k); return _wIds.get(w)||'rusty'; };
-  // a blade hanging point-down below the hand at (hx,hy): pommel above the hand, the guard below it
-  const hang=(P,p,hx,hy,s)=>{ const L=s.len>=9?7:(s.len>=7?6:5);
-    P(hx,hy-2,1,1,s.gem||p.P||p.G); P(hx,hy-1,1,1,s.grip||p.GR); P(hx,hy,1,1,p.GRD);                  // pommel, grip in the fist
-    const g=Math.min(s.guard||2,3); P(hx-g+1,hy+1,g*2-1,1,p.G); if(s.wings){ P(hx-g,hy,1,2,p.G); P(hx+g,hy,1,2,p.G); }
-    for(let i=0;i<L;i++){ const y=hy+2+i; P(hx,y,1,1,p.B); if(s.th>1) P(hx+1,y,1,1,(s.wavy&&i%2)?p.B:p.D);
-      if(i===0||i===2) P(hx,y,1,1,p.H); if(s.gild) P(hx+1,y,1,1,p.G); if(s.rust&&i%2) P(hx,y,1,1,'#9a6a3a'); if(s.notch&&i===2) P(hx,y,1,1,p.E); }
-    if(s.broken){ P(hx,hy+2+L,1,1,p.E); } else P(hx,hy+2+L,1,1,p.H);
-    if(s.bell){ P(hx-1,hy+3+L,3,1,p.G); P(hx,hy+3+L,1,1,'#fff6c0'); }
-    if(s.leaf){ P(hx-1,hy+4,1,2,p.B); P(hx+1,hy+4,1,2,p.D); } };
-  // side-on the blade is carried point-forward and down, its guard seen edge-on (Zak: "the weapon from the back and side
-  // seems to face the same direction as when you're facing forward")
-  const hangSide=(P,p,hx,hy,s)=>{ const L=s.len>=9?6:(s.len>=7?5:4);
-    P(hx+1,hy-2,1,1,s.gem||p.P||p.G); P(hx,hy-1,1,1,s.grip||p.GR); P(hx,hy,1,1,p.GRD);                  // pommel behind the fist, grip in it
-    P(hx-1,hy,1,1,p.G); P(hx,hy+1,1,1,p.G); P(hx+1,hy+2,1,1,p.GD); if(s.wings){ P(hx-2,hy-1,1,1,p.G); P(hx+2,hy+3,1,1,p.G); }   // the guard, edge-on, across the blade
-    // a shallow slope, so the point rides clear of the ground (Zak: "have the tip of the sword a little higher so it doesn't look like it's on the dirt")
-    const dy=(i)=>Math.round(i*0.25);   // held nearly level, point forward (_legacy 2026-10-06-kp3: i*0.5; -kp2: a 45° hang)
-    for(let i=1;i<=L;i++){ const x=hx-i, y=hy+1+dy(i); P(x,y,1,1,p.B); P(x,y-1,1,1,(s.th>1)?p.D:p.H); if(i===1) P(x,y,1,1,p.H);
-      if(s.gild) P(x,y+1,1,1,p.G); if(s.rust&&i%2) P(x,y,1,1,'#9a6a3a'); if(s.wavy&&i%2) P(x,y+1,1,1,p.D); }
-    const tx=hx-L-1, ty=hy+1+dy(L+1); if(s.broken) P(tx+1,ty,1,1,p.E); else P(tx,ty,1,1,p.H);
-    if(s.bell){ P(tx-1,ty,2,1,p.G); P(tx,ty+1,2,1,p.G); } };
-  // from behind: the back of the blade, hanging and canted out from his hip, the hilt over his fist
-  const hangBack=(P,p,hx,hy,s)=>{ const L=s.len>=9?6:(s.len>=7?5:4);
-    P(hx,hy-2,1,1,s.gem||p.P||p.G); P(hx,hy-1,1,1,s.grip||p.GRD); P(hx-1,hy+1,3,1,p.GD);
-    for(let i=0;i<L;i++){ const x=hx-((i+1)>>1), y=hy+2+i; P(x,y,1,1,p.D); if(s.th>1) P(x+1,y,1,1,p.E); }
-    P(hx-((L+1)>>1),hy+2+L,1,1,s.broken?p.E:p.B);
-    if(s.bell) P(hx-((L+1)>>1)-1,hy+3+L,3,1,p.GD); };
-  const restOther=(P,w,id,hx,hy,side,where)=>{ const p=w.pal;
-    if(where==='left'){                                                                                   // side-on: carried forward and down, seen edge-on
-      if(id==='warhammer'){ for(let i=0;i<4;i++) P(hx-i,hy+1+i,1,1,p.GR); P(hx-6,hy+4,3,4,p.B); P(hx-6,hy+4,3,1,p.H); P(hx-6,hy+7,3,1,p.E); P(hx-5,hy+5,1,2,'#c9a94a'); return; }
-      if(id==='bow_samuel'){ P(hx,hy-5,1,11,p.B); P(hx,hy-5,1,1,'#e8c25a'); P(hx,hy+5,1,1,'#e8c25a'); P(hx,hy-1,1,2,p.G); return; }
-    }
-    if(where==='up'){
-      if(id==='warhammer'){ P(hx,hy-1,1,7,p.GRD); P(hx-2,hy+6,5,3,p.D); P(hx-2,hy+6,5,1,p.B); return; }
-      if(id==='bow_samuel'){ P(hx,hy-5,1,11,p.D); P(hx+1,hy-4,1,9,p.ST); return; }
-    }
-    if(id==='warhammer'){ P(hx,hy-1,1,7,p.GR); P(hx-2,hy+6,5,3,p.B); P(hx-2,hy+6,5,1,p.H); P(hx-2,hy+8,5,1,p.E); P(hx-1,hy+7,3,1,'#c9a94a'); return; }
-    if(id==='staff_aiden'){ const sx=hx+(side>0?1:-1); P(sx,hy-12,1,18,p.B); P(sx,hy-12,1,18,p.B); for(let y=hy-9;y<hy+6;y+=3) P(sx,y,1,1,p.D);
-      P(sx+side,hy-13,1,1,p.B); P(sx+side*2,hy-12,1,2,p.B); P(sx+side,hy-10,1,1,p.D); P(sx+side,hy-14,1,1,'#f4f0e4'); return; }    // upright, like a walking staff
-    if(id==='bow_samuel'){ P(hx,hy-5,1,1,p.D); P(hx+side,hy-4,1,3,p.B); P(hx+side,hy-4,1,1,p.H); P(hx+side,hy+2,1,3,p.B); P(hx,hy+5,1,1,p.D); P(hx,hy-4,1,9,p.ST); P(hx,hy,1,1,p.G); return; }
-    if(id==='gaunt_caleb'){ P(hx-1,hy-1,3,3,p.B); P(hx-1,hy-1,3,1,p.H); P(hx,hy,1,1,'#ffffff'); return; }
-    if(id==='ring_lydia'){ P(hx,hy,1,1,'#8ad8ea'); P(hx+side,hy-1,1,1,'#ffffff'); return; } };
-  const base={ D:drawWeaponDown, L:drawWeaponLeft, U:drawWeaponUp };
-  const rest=(P,w,where)=>{ const id=idOf(w), s=W2SPEC_PUB[id], sw=_kSwing(_wRest.f);
-    // the hand that holds it, as the arm swings: facing you it is his left (screen-right) arm; side-on, his front arm
-    let hx, hy, side;
-    if(where==='down'){ hx=13; hy=10-sw; side=1; } else if(where==='left'){ hx=1-sw; hy=10; side=-1; } else { hx=2; hy=10; side=-1; }
-    if(s){ if(where==='down') hang(P,w.pal,hx,hy,s); else if(where==='left') hangSide(P,w.pal,hx,hy,s); else hangBack(P,w.pal,hx,hy,s); }
-    else restOther(P,w,id,hx,hy,side,where); };
-  drawWeaponDown=function(P,w){ return _wRest ? rest(P,w,'down') : base.D(P,w); };
-  drawWeaponLeft=function(P,w){ return _wRest ? rest(P,w,'left') : base.L(P,w); };
-  drawWeaponUp=function(P,w){ return _wRest ? rest(P,w,'up') : base.U(P,w); };
-  const rawBody=drawKnightBody;
-  drawKnightBody=function(x,y,dir,f){ const was=_wRest; _wRest={ f:f|0, dir }; try{ return rawBody.apply(this, arguments); } finally{ _wRest=was; } };
-})();
-// the shield brought round in front of him (drawn over the body, outlined like him)
-const _kShieldArt=()=>{ const L=(typeof currentLivery==='function')?currentLivery():'azure', g=(typeof gloryArmor==='function')&&gloryArmor();
-  if(L==='ranger') return { rim:'#5c6270', field:'#94623a', hi:'#b07a4a', cross:'#c0392e', crossD:'#8a241c' };
-  if(g) return { rim:'#b8902a', field:'#fffdf4', hi:'#ffffff', cross:'#e8c45a', crossD:'#b8902a' };
-  return { rim:'#b8c0d0', field:'#e8ecf2', hi:'#ffffff', cross:'#e8b93a', crossD:'#b8902a' }; };
-function _kShieldFace(x,y){ const a=_kShieldArt(), P=(lx,ly,w,h,c)=>px(x+lx,y+ly,w,h,c);
-  P(0,0,8,7,'#141c2e'); P(1,7,6,1,'#141c2e'); P(2,8,4,1,'#141c2e'); P(3,9,2,1,'#141c2e');
-  P(1,1,6,6,a.rim); P(2,7,4,1,a.rim); P(3,8,2,1,a.rim); P(2,2,4,5,a.field); P(3,7,2,1,a.field); P(1,1,6,1,a.hi);
-  P(3,2,2,6,a.cross); P(2,4,4,1,a.cross); P(3,5,2,2,a.crossD); P(2,2,1,1,'#ffffff'); }
-function _kShieldSide(x,y){ const a=_kShieldArt(), P=(lx,ly,w,h,c)=>px(x+lx,y+ly,w,h,c);   // the shield on his near arm, three-quarter on: a 5×8 heater (Zak, kp5: "make the shield just slightly smaller in the side view")
-  P(0,0,5,6,a.rim); P(1,6,3,1,a.rim); P(2,7,1,1,a.rim); P(1,1,3,5,a.field); P(2,6,1,1,a.field); P(0,0,5,1,a.hi); P(0,0,1,6,a.hi); P(4,1,1,5,'#8890a0');
-  P(2,1,1,6,a.cross); P(1,3,3,1,a.cross); P(2,4,1,1,a.crossD); P(1,1,1,1,'#ffffff'); }   // (_legacy -kp4: a 6×9 heater; -kp3: a 4×9 strip)
-function _kShieldEdge(x,y,mirror){ const a=_kShieldArt(), P=(lx,ly,w,h,c)=>px(x+lx,y+ly,w,h,c);
-  P(0,0,3,10,'#141c2e'); P(mirror?0:1,1,2,8,a.rim); P(mirror?0:1,3,2,4,a.cross); P(1,1,1,8,a.hi); }
-const _kRawKnightGuard = drawKnight;
-drawKnight = function(x,y){
-  const up = player.blocking && !player.mounted && !player.boating;
-  player._blkT = Math.max(0, Math.min(4, (player._blkT||0) + (up?1:-1)));            // 4 frames to bring it round, 4 to lower it
-  const dir=player.dir||'down', o=(player.moving?((player.frame===1)?-1:(player.frame===3)?1:0):0);
-  // facing right his shield arm is the near one: the shield stays in sight on it (Zak: "from the right side could we have the shield visible instead of disappearing")
-  const _pounding = player.swingType==='special' && player.swing>0;    // (only while the Ground Pound is actually playing — Zak: "when you use ground pound and face the side the shield disappears until you strike again")
-  const _shOk = !_kShieldFwdOn() && !player.mounted && !player.boating && !beastForm() && !_pounding && !(player.iframes>0 && Math.floor(player.iframes/4)%2);
-  if(dir==='left' && _shOk) _sprPolish(function(xx,yy){ _kShieldEdge(xx,yy,true); }, null, [x+11, y+5+o]);   // facing left the shield is on his far arm: its edge shows behind his back   (drawn BEFORE him, so it sits behind his back and he overlaps it)
-  // facing left his shield arm is the far one: raising the guard brings it round BEHIND him (he hides it as it passes), and only once it is out in front is it drawn over him
-  // (Zak, kp5: "make the shield when facing left come from the other side so the physics make sense … it's supposed to come from the right")
-  const _lfOn = dir==='left' && _kShieldFwdOn() && !player.boating && !(player.iframes>0 && Math.floor(player.iframes/4)%2);
-  if(_lfOn && player._blkT<4){ const t0=player._blkT/4; _sprPolish(function(xx,yy){ _kShieldEdge(xx,yy,false); }, null, [x+Math.round(11+(-1-11)*t0), y+5+o-(t0>=0.5?1:0)]); }
-  const r=_kRawKnightGuard.apply(this, arguments);
-  if(dir==='right' && _shOk) _sprPolish(function(xx,yy){ _kShieldSide(xx,yy); }, null, [x+5, y+5+o]);
-  if(!_kShieldFwdOn() || player.boating || (player.iframes>0 && Math.floor(player.iframes/4)%2)) return r;
-  const t=player._blkT/4;
-  const lerp=(a,b)=>Math.round(a+(b-a)*t);
-  if(dir==='down') _sprPolish(function(xx,yy){ _kShieldFace(xx,yy); }, null, [x+lerp(0,4), y+6+o]);
-  else if(dir==='left'){ if(player._blkT>=4) _sprPolish(function(xx,yy){ _kShieldEdge(xx,yy,false); }, null, [x-1, y+4+o]); }   // (on its way round it was drawn behind him, above; _legacy -kp4 slid it across the front of his body)
-  else if(dir==='right'){ if(t<0.5) _sprPolish(function(xx,yy){ _kShieldSide(xx,yy); }, null, [x+lerp(5,14), y+5+o]); else _sprPolish(function(xx,yy){ _kShieldEdge(xx,yy,true); }, null, [x+lerp(6,14), y+4+o]); }   // from his near arm round to the front
-  // facing away the shield is in front of him — out of sight
-  return r;
-};
 
 function drawTile(t,x,y,tx,ty){
   // ── THE HOMESTEAD FENCE AND GATE ──
@@ -29118,7 +28780,7 @@ function drawTile(t,x,y,tx,ty){
       px(x+5+h4,y+2+h3,1,1,'#f4e8c0'); px(x+10-h2%5,y+12-h4,1,1,'#c9b478');
       break; }
     case 20: { px(x,y,TILE,TILE,'#5fb0c8'); // SHALLOW surf (lighter, wadeable)
-      px(x,y+((tx+ty)%4)*3,TILE,1,'#8fd0e0'); px(x+2,y+8,6,1,'#bfe8f0');   // keyed on the tile, not the screen pixel (_legacy: ((y+x)%4) — the ripple jumped as the camera moved)
+      px(x,y+((y+x)%4)*3,TILE,1,'#8fd0e0'); px(x+2,y+8,6,1,'#bfe8f0');
       // foam line where the surf laps against sand or grass
       const land20=(t2)=>t2!==undefined&&t2!==3&&t2!==20&&t2!==21&&t2!==29;
       if(land20(NG[ty-1]&&NG[ty-1][tx])){ px(x,y,TILE,2,'#dff4fa'); px(x,y+2,TILE,1,'#9fd8e8'); }
@@ -29242,8 +28904,7 @@ function drawTile(t,x,y,tx,ty){
     case 28: px(x,y,TILE,TILE,'#3a4038'); px(x+3,y+5,3,2,'#454d42'); px(x+9,y+10,3,2,'#313630'); break; // BOG ground (murky green-grey)
     case 29: { px(x,y,TILE,TILE,'#1e2a2a'); px(x+2,y+4,6,2,'#33474a'); px(x+8,y+9,5,2,'#33474a'); px(x+4,y+8,2,1,'#4a6266'); break; } // SWAMP water (dark)
     case 30: { px(x,y,TILE,TILE,'#3a4038'); // MIST patch (hazy overlay on bog)
-      const mp=(Math.floor(Date.now()/400)+tx*TILE)%TILE;   // (_legacy: +x, the screen pixel)
-      px(x,y+4,TILE,3,'#8a96964d'); px(x,y+9,TILE,2,'#8a969633'); px(x+mp%TILE,y+1,5,1,'#aab4b466'); break; }
+      const mp=(Math.floor(Date.now()/400)+x)%TILE; px(x,y+4,TILE,3,'#8a96964d'); px(x,y+9,TILE,2,'#8a969633'); px(x+mp%TILE,y+1,5,1,'#aab4b466'); break; }
     case 31: px(x,y,TILE,TILE,'#6b4a2e'); px(x,y+2,TILE,1,'#5a3e26'); px(x,y+6,TILE,1,'#5a3e26'); px(x,y+10,TILE,1,'#5a3e26'); px(x,y+14,TILE,1,'#5a3e26'); px(x+4,y+4,1,1,'#7c5836'); break; // TILLED soil (furrow rows)
     case 32: { // CLIFF LEDGE — warm chunky boulder; snow-dusted only in snowy areas
       const rk=(t2)=>t2===32||t2===33;
@@ -32305,13 +31966,12 @@ function drawKnightBody(x,y,dir,f,bob,mb,swinging,wpnId){
   const helmFront=(vx,vw)=>{ P(4,2,8,5,HELM);P(4,2,8,1,HELM_HI);P(4,2,1,5,HELM_L);P(11,2,1,5,HELM_D);P(3,2,1,5,OL);P(12,2,1,5,OL);P(4,1,8,1,OL);P(vx,4,vw,2,VISOR);P(vx,4,vw,1,VISOR_D); };
   const shield=(ox,oy)=>{ P(ox,oy,7,1,'#dfe4ea');P(ox,oy,1,6,STEEL_D);P(ox+6,oy,1,6,STEEL_D);P(ox,oy,7,7,SHIELD);P(ox+1,oy+7,5,1,SHIELD);P(ox+2,oy+8,3,1,SHIELD);P(ox+3,oy+9,1,1,SHIELD_D);P(ox+1,oy+1,5,6,SHIELD_FIELD);P(ox+1,oy+1,1,6,SHIELD_D);const cx=ox+3;P(cx,oy+1,1,6,CROSSG);P(ox+1,oy+3,5,1,CROSSG);P(cx,oy+6,1,1,CROSSG_D);P(ox+1,oy+1,1,1,CROSSG);P(ox+5,oy+1,1,1,CROSSG);P(ox+1,oy+5,1,1,CROSSG);P(ox+5,oy+5,1,1,CROSSG);P(ox,oy,1,7,OL); };
   const armFront=(side,skinFore)=>{
-    const sw=_kSwing(f)*(side==='L'?1:-1), ah=3+Math.max(0,sw), hy=10+sw;   // the arms swing opposite the legs (_legacy: still arms, hands at row 10)
-    if(side==='L'){ const b=1; P(b,5,3,2,PAUL);P(b,5,3,1,PAUL_HI);P(b,6,1,1,PAUL_D);P(b,7,3,ah,ARM);P(b,7,1,ah,ARM_HI);P(b+2,7,1,ah,ARM_D);P(b,7,3,1,ARM_HI);
-      if(skinFore){P(b+1,hy,2,2,SKIN);P(b+1,hy,1,2,SKIN_HI);P(b+2,hy,1,1,SKIN_D);}else{P(b+1,hy,2,2,PAUL);P(b+1,hy,1,2,PAUL_HI);} P(b,4,3,1,OL); }
-    else { const b=12; P(b,5,3,2,PAUL);P(b,5,3,1,PAUL_HI);P(b+2,6,1,1,PAUL_D);P(b,7,3,ah,ARM);P(b,7,1,ah,ARM_HI);P(b+2,7,1,ah,ARM_D);P(b,7,3,1,ARM_HI);
-      if(skinFore){P(b,hy,2,2,SKIN);P(b,hy,1,2,SKIN_HI);P(b+1,hy,1,1,SKIN_D);}else{P(b,hy,2,2,PAUL);P(b,hy,1,2,PAUL_HI);} P(b,4,3,1,OL); }
+    if(side==='L'){ const b=1; P(b,5,3,2,PAUL);P(b,5,3,1,PAUL_HI);P(b,6,1,1,PAUL_D);P(b,7,3,3,ARM);P(b,7,1,3,ARM_HI);P(b+2,7,1,3,ARM_D);P(b,7,3,1,ARM_HI);
+      if(skinFore){P(b+1,10,2,2,SKIN);P(b+1,10,1,2,SKIN_HI);P(b+2,10,1,1,SKIN_D);}else{P(b+1,10,2,2,PAUL);P(b+1,10,1,2,PAUL_HI);} P(b,4,3,1,OL); }
+    else { const b=12; P(b,5,3,2,PAUL);P(b,5,3,1,PAUL_HI);P(b+2,6,1,1,PAUL_D);P(b,7,3,3,ARM);P(b,7,1,3,ARM_HI);P(b+2,7,1,3,ARM_D);P(b,7,3,1,ARM_HI);
+      if(skinFore){P(b,10,2,2,SKIN);P(b,10,1,2,SKIN_HI);P(b+1,10,1,1,SKIN_D);}else{P(b,10,2,2,PAUL);P(b,10,1,2,PAUL_HI);} P(b,4,3,1,OL); }
   };
-  const armProfile=()=>{ const sw=_kSwing(f); P(2,5,3,2,PAUL);P(2,5,3,1,PAUL_HI);P(2-Math.max(0,sw),7,3,3,ARM);P(2-Math.max(0,sw),7,1,3,ARM_HI);P(4,7,1,3,ARM_D);P(2,7,3,1,ARM_HI);P(1-sw,9,2,2,SKIN);P(1-sw,9,1,2,SKIN_HI);P(2,4,3,1,OL); };   // the arm swings fore and aft (_legacy: hand fixed at x1)
+  const armProfile=()=>{ P(2,5,3,2,PAUL);P(2,5,3,1,PAUL_HI);P(2,7,3,3,ARM);P(2,7,1,3,ARM_HI);P(4,7,1,3,ARM_D);P(2,7,3,1,ARM_HI);P(1,9,2,2,SKIN);P(1,9,1,2,SKIN_HI);P(2,4,3,1,OL); };
   const sword=(hx,hy)=>{ P(hx,hy,1,2,GRIP);P(hx,hy+1,1,1,POMMEL);P(hx-1,hy-1,3,1,GUARD);P(hx-1,hy-1,1,1,GUARD_D);P(hx,hy-3,2,2,BLADE);P(hx+1,hy-5,2,2,BLADE);P(hx+2,hy-7,2,2,BLADE);P(hx,hy-3,1,2,BLADE_HI);P(hx+1,hy-5,1,2,BLADE_HI);P(hx+2,hy-7,1,2,BLADE_HI);P(hx+1,hy-2,1,1,BLADE_D);P(hx+2,hy-4,1,1,BLADE_D);P(hx+3,hy-7,1,1,'#ffffff'); };
   const swordFlat=(hx,hy)=>{ P(hx+2,hy,1,2,GRIP);P(hx+1,hy-1,3,1,GUARD);P(hx+1,hy-1,1,1,BLADE);P(hx,hy-2,2,1,BLADE_HI);P(hx,hy-3,1,1,BLADE);P(hx-1,hy-4,2,1,BLADE_HI);P(hx-1,hy-4,1,1,'#ffffff'); };
   const _rng=currentLivery()==='ranger';
@@ -32360,11 +32020,11 @@ function drawKnightBody(x,y,dir,f,bob,mb,swinging,wpnId){
     armFront('L',false); armFront('R',true);
     if(currentLivery()==='ranger'||currentLivery()==='champion') capeMantle('front');
     helmFront(5,6); crest('front');
-    if(!_kShieldFwdOn()){ if(!beastForm()) shield(0,6); }   // (on guard, the shield is drawn in front of him instead)
+    if(!beastForm()) shield(0,6);
     if(!swinging && !beastForm()) drawWeaponDown(P, WPN);   /* _legacy: sword(13,10); */
   } else if(dir==='up'){
     legsFront();
-    if(!_kShieldFwdOn()){ P(12,6,2,6,SHIELD_D);P(13,6,1,6,SHIELD);P(12,6,2,1,'#dfe4ea'); }
+    P(12,6,2,6,SHIELD_D);P(13,6,1,6,SHIELD);P(12,6,2,1,'#dfe4ea');
     if(!swinging && !beastForm()) drawWeaponUp(P, WPN);   /* _legacy: P(3,4,1,4,BLADE);P(3,4,1,2,BLADE_HI); */
     P(4,5,8,7,TUNIC);P(4,5,2,7,TUNIC_L);P(10,5,2,7,TUNIC_D);P(4,11,8,1,TUNIC_SH);P(4,5,8,1,TUNIC_RIM);P(3,5,1,7,OL);P(12,5,1,7,OL);P(7,5,1,7,TUNIC_D);
     if(currentLivery()==='ranger'||currentLivery()==='champion') cape('back');
@@ -32375,7 +32035,7 @@ function drawKnightBody(x,y,dir,f,bob,mb,swinging,wpnId){
   } else { // left / right (right handled by caller via flip)
     if(currentLivery()==='ranger'||currentLivery()==='champion') cape('profile');
     legsProfile();
-    if(!_kShieldFwdOn()){ P(10,6,2,6,SHIELD_D);P(11,6,1,6,SHIELD);P(10,6,2,1,'#dfe4ea'); }
+    P(10,6,2,6,SHIELD_D);P(11,6,1,6,SHIELD);P(10,6,2,1,'#dfe4ea');
     P(4,5,7,7,TUNIC);P(4,5,2,7,TUNIC_L);P(9,5,2,7,TUNIC_D);P(4,5,7,1,TUNIC_RIM);P(4,11,7,1,TUNIC_SH);P(3,5,1,7,OL);P(11,5,1,7,OL);P(5,9,4,1,BELT);P(6,9,1,1,BUCKLE);
     armProfile();
     if(currentLivery()==='ranger'||currentLivery()==='champion') capeMantle('profile');
@@ -32507,7 +32167,7 @@ function drawKnight(x,y){
     ctx.globalAlpha=0.22*(1-p); ctx.fillStyle=player.specialColor; ctx.beginPath(); ctx.arc(x+TILE/2,y+TILE/2,rad,0,7); ctx.fill();
     ctx.globalAlpha=1; }
   ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x+TILE/2,y+TILE-1,5,2,0,0,7); ctx.fill();
-  if(player.blocking && player.blockFlash>0){   // only the flash of a blocked hit now — the shield itself shows he is on guard (_legacy: a steady yellow ring)
+  if(player.blocking){
     const t2=performance.now();
     ctx.strokeStyle = player.blockFlash>0 ? '#fff' : 'rgba(250,204,21,.85)';
     ctx.lineWidth = player.blockFlash>0 ? 3 : 2;
@@ -36352,7 +36012,7 @@ bootLogo.src=BOOT_LOGO_SRC;
 const boot = { done:false, phase:'logo', t:0, cursor:0, fade:0, fin:0, fading:null, slashed:false, confirmed:false };
 const BOOT_W=240, BOOT_H=160;
 // Bumped on every export. Shown on the title screen so a cached copy is obvious.
-const BUILD_TAG = '2026-10-06-kp5';  // 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
+const BUILD_TAG='2026-10-01-so';  // ✒ every character outlined, sprite upgrade step 1 (_legacy: '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
 
 // ── tiny Web Audio kit (game has no audio system yet; kept self-contained) ──
 let bootAC=null;
