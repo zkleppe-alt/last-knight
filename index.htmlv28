@@ -9501,7 +9501,7 @@ const TOURNEY_HITS = 2.2;
 // single stray tap, mid-bout, with no warning — and Ⓑ is the dodge button
 // everywhere else in the game, so the muscle memory was actively against you.
 // Yielding now takes a deliberate hold.
-const TOURNEY_YIELD_MS = 3000;   // (2026-10-07: was 900 — in the arena you hold the shield up while you circle and wait for his tell; yielding is a long, deliberate hold)
+const TOURNEY_YIELD_MS = 900;
 const TOURNEY_PARRY_MS = 220;    // a guard raised THIS recently turns a blow aside
 const TOURNEY_GUARD_CUT = 0.30;  // a standing guard blunts a blow to this much
 const TOURNEY_LADDER_ROUNDS=5;
@@ -9649,7 +9649,7 @@ function tourneyTick(dt){
       fo.dir=Math.abs(vx)>Math.abs(vy)?(vx<0?'left':'right'):(vy<0?'up':'down');
     } else { fo.x+=vx/dist*fo.spd*f; fo.y+=vy/dist*fo.spd*f; }
     fo.x=Math.max(16,Math.min(cw-32,fo.x)); fo.y=Math.max(28,Math.min(chh-24,fo.y));
-    if(dist<13 && fo.cd<=0 && tourney.inv<=0 && (fo.kind!=='rival' || fo.lunge>0)){   // (2026-10-07) a knight hurts you with his ATTACK — the lunge after his wind-up — not by standing near you (_legacy: any contact)
+    if(dist<13 && fo.cd<=0 && tourney.inv<=0){
       // a lunge lands harder than a brush — that is what the guard is FOR
       let dmg=fo.dmg * ((fo.lunge>0)?2:1);
       if(tourney.guard && tourney.parry>0){
@@ -9692,8 +9692,6 @@ function exitTourney(win,fled){
       showBanner('🏆 <b>'+th.name+' — GRAND CHAMPION!</b><br><span style="font-size:7px">Five bouts, five victories — the Grand Champion falls to your blade! +'+g+' gold.<br>'+(firstTime?'You are girded with the <b>Champion\\u2019s Cross</b> \\u2014 and a cross-forged blade to raise at your Homestead. \u271d\ufe0f':'Another <b>Champion\\u2019s Cross</b> monument awaits at your Homestead.')+'</span>',5200);
     } else if(tourney.mode==='waves'){ const g=20+6*L; gold+=g; gainXp(12+3*L);
       showBanner('\ud83c\udfc6 <b>'+th.name+' \u2014 CHAMPION!</b><br><span style="font-size:7px">The crowd roars! +'+g+' gold, and glory besides.</span>',4200);
-    } else if(tourney.mode==='joust'){ const g=14+4*L; gold+=g; gainXp(30+6*L);   // 🐎 the joust (2026-10-07)
-      showBanner('🐎 <b>'+th.name+' — THE JOUST IS YOURS!</b><br><span style="font-size:7px">Lance true, seat firm — the crowd is on its feet. +'+g+' gold.</span>',4200);
     } else { const g=6+2*L; gold+=g; gainXp(26+6*L);
       showBanner('\ud83c\udfc6 <b>'+th.name+' \u2014 DUEL WON!</b><br><span style="font-size:7px">A worthy blade. The heralds sing of you. +'+g+' gold.</span>',4200);
     }
@@ -9777,317 +9775,6 @@ function drawTourney(){
 //  The overworld is tinted by the hour; demons grow bold after dark.
 //  playMs = total time played on this save (persisted, shown on save slots).
 // ════════════════════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════
-//  ⚔ THE LISTS, FROM BEHIND THE KNIGHT (2026-10-07, tag 2026-10-07-tj)
-//  Zak: "I'd like to do the Knight tourneys next, if possible in a similar view as the other minigames - but combat.
-//  Include normal combat moves the knight has in the open world along with the weapons." Then: circle the foe in the
-//  1v1 and small matches, an open arena for the big melee; keep the stick with Ⓐ and Ⓑ; "Adding a jousting round
-//  would be incredible" (its own contest AND the Grand Tournament's opening bout); knock out the health, no potions.
-//  The fight underneath is the old one (tourneyTick: the wind-up tell, the lunge, the parry window, foe health tied to
-//  your blow, knockback by weapon). What's new: the round arena drawn in perspective from behind the knight, the stick
-//  mapped to circling (duel, tournament) or steering (melee), the field combo with its Ground Pound, and the joust.
-//  _legacy: the top-down drawTourney is kept as _listsLegacyDraw.
-// ════════════════════════════════════════════════════════════════
-const LISTS_K=2.4;                     // texture units per arena pixel (the whole round arena fits the view)
-const LISTS={ back:34, height:30, horizon:0.34 };
-const LISTS_PAL={
-  sg_keep:{ sand:'#c8a870', sandL:'#d8b880', sandD:'#b09058', outer:'#3a3a44', stand:['#6a4a2a','#7a5a32'], rail:['#8a6a3a','#a8844a'], walls:'#4a5468', sky:['#5a7ab0','#c8d4e8'], banner:['#8a1f2a','#2a4a9a'],
-    foes:[{tabard:'#8a1f2a',trim:'#d8b04a',steel:'#a8a8b4',plume:'#f4eede',shield:'#8a1f2a'},{tabard:'#2a4a9a',trim:'#d8b04a',steel:'#b8b8c2',plume:'#d8b04a',shield:'#2a4a9a'}] },
-  ih_keep:{ sand:'#a8946a', sandL:'#b8a47a', sandD:'#90805a', outer:'#2e2e36', stand:['#4a4a54','#56565e'], rail:['#6a6a74','#7a7a84'], walls:'#3e3e48', sky:['#4a5468','#9aa4b8'], banner:['#c84a2a','#4a4a54'],
-    foes:[{tabard:'#4a4a54',trim:'#c84a2a',steel:'#8890a2',plume:'#c84a2a',shield:'#3a3a44'},{tabard:'#2a6a3a',trim:'#f4eede',steel:'#b8b8c2',plume:'#2a6a3a',shield:'#2a6a3a'}] },
-  hg_keep:{ sand:'#d8c898', sandL:'#e8d8a8', sandD:'#c0b080', outer:'#3a3440', stand:['#e8e0d0','#d8d0c0'], rail:['#d8b04a','#f0d070'], walls:'#c8c0b0', sky:['#6a8ad0','#f4ecd0'], banner:['#f4eede','#d8b04a'],
-    foes:[{tabard:'#f4eede',trim:'#d8b04a',steel:'#d8dce8',plume:'#d8b04a',shield:'#f4eede'},{tabard:'#4a2a6a',trim:'#d8b04a',steel:'#b8b8c2',plume:'#f4eede',shield:'#4a2a6a'}] } };
-const _listsPal=()=>LISTS_PAL[tourney.keep]||LISTS_PAL.sg_keep;
-const _listsC=()=>[VW/2, VH/2], _listsR=()=>Math.min(VW,VH)/2-14;
-function _listsCanvas(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
-const _listsSpr=new Map();
-function _listsSprite(key,w,h,fn){ let c=_listsSpr.get(key); if(c) return c; c=_listsCanvas(w,h); const g=c.getContext('2d'); fn(g,(x,y,ww,hh,col)=>{ g.fillStyle=col; g.fillRect(x,y,ww,hh); }); if(_listsSpr.size>160) _listsSpr.clear(); _listsSpr.set(key,c); return c; }
-// the knight from behind: LEFT-handed — from behind, his left hand is on screen-LEFT, the shield on his right arm (screen-right)
-function _listsWeaponKind(id){ if(W2SPEC_PUB[id]) return 'blade'; id=String(id||''); return /hammer/i.test(id)?'hammer':/staff/i.test(id)?'staff':/bow/i.test(id)?'bow':/gaunt|tide/i.test(id)?'gauntlet':'fist'; }
-function _listsKnight(pose){ const id=player.equip&&player.equip.weapon, kind=_listsWeaponKind(id), sp=W2SPEC_PUB[id]||{};
-  return _listsSprite('k'+pose+id+(player.livery||''),40,58,(g,px)=>{
-    const liv=player.livery==='champion'?['#f4eede','#d8b04a']:['#3b6fd4','#5a8ae8'];
-    px(14,40,5,14,'#2a3448'); px(21,40,5,14,'#2a3448'); px(13,52,7,3,'#3a2a1a'); px(20,52,7,3,'#3a2a1a');
-    px(12,22,16,20,liv[0]); px(12,22,5,20,liv[1]); px(12,38,16,2,'#c9a94a');
-    px(13,14,14,8,'#c9cdd6'); px(13,14,14,2,'#eef0f4'); px(15,6,10,10,'#c9cdd6'); px(15,6,10,2,'#eef0f4');
-    px(17,2,4,5,'#e8452f'); px(21,0,4,4,'#e8452f'); px(24,1,3,3,'#c8341f');
-    const L=kind==='blade'?Math.max(10,(sp.len||6)*2.4):16, bl=sp.gild?'#f2d27a':sp.rust?'#a86a3a':'#d8dce8', gem=sp.gem||'#3a5aa8';
-    const weapon=(x,top,len)=>{ if(kind==='blade'){ px(x,top,sp.th>1?4:3,len,bl); px(x,top,1,len,'#ffffff'); px(x-1,top+len,6,2,'#c9a94a'); px(x+1,top+len+2,2,4,'#5a3a1e'); if(sp.gem) px(x+1,top+len,2,2,gem); }
-      else if(kind==='hammer'){ px(x+1,top+4,2,len,'#6a4a2a'); px(x-3,top,10,6,'#8a8a96'); px(x-3,top,10,1,'#c8c8d4'); px(x,top+2,4,2,'#d8b04a'); }
-      else if(kind==='staff'){ px(x+1,top,2,len+6,'#8a6138'); px(x-1,top-2,4,4,'#8a6138'); px(x+2,top-3,3,3,'#f4f4f4'); }
-      else if(kind==='bow'){ px(x,top,2,len+4,'#8a6138'); px(x+3,top+1,1,len+2,'#e8e0cf'); }
-      else { px(x-1,top+len-4,6,6,kind==='gauntlet'?'#3a6ab4':'#c9cdd6'); } };
-    if(pose==='swing'||pose==='pound'){ px(6,14,7,6,'#c9cdd6'); weapon(3,pose==='pound'?6:2,L); }
-    else { px(8,22,5,12,'#c9cdd6'); weapon(4,28,L); }
-    if(pose==='guard'){ px(18,12,20,22,'#141c2e'); px(19,13,18,20,'#2a4a9a'); px(26,14,4,18,'#d8b04a'); px(20,20,16,4,'#d8b04a'); }
-    else { px(27,20,11,16,'#141c2e'); px(28,21,9,14,'#2a4a9a'); px(31,22,3,12,'#d8b04a'); px(29,26,7,3,'#d8b04a'); } }); }
-// a challenger from the front, in his keep's colours. pose: circle · wind (sword back over his head: the tell) · lunge · hurt
-function _listsFoe(col, pose){ return _listsSprite('f'+JSON.stringify(col)+pose,44,60,(g,px)=>{ const o=2;
-  px(14+o,42,5,14,'#2a2a30'); px(21+o,42,5,14,'#2a2a30'); px(13+o,54,7,3,'#2a1a10'); px(20+o,54,7,3,'#2a1a10');
-  px(12+o,22,16,22,col.tabard); px(18+o,22,4,22,col.trim); px(12+o,30,16,3,col.trim); px(12+o,40,16,2,'#3a2a1a');
-  px(13+o,14,14,8,col.steel); px(15+o,4,10,11,col.steel); px(15+o,4,10,2,'#ffffff'); px(16+o,9,8,2,'#141418'); px(19+o,11,2,3,'#141418');
-  px(18+o,0,4,5,col.plume); px(21+o,0,3,4,col.plume);
-  if(pose==='wind'){ px(26+o,6,6,10,col.steel); px(31+o,0,4,16,'#d8dce8'); px(31+o,0,4,2,'#fff'); }
-  else if(pose==='lunge'){ px(26+o,26,12,5,col.steel); px(36+o,24,6,4,'#d8dce8'); }
-  else { px(27+o,24,5,12,col.steel); px(30+o,28,4,22,'#d8dce8'); }
-  px(2+o,22,12,16,'#141418'); px(3+o,23,10,14,col.shield); px(6+o,25,4,10,col.trim);
-  if(pose==='hurt'){ g.globalAlpha=0.5; px(0,0,44,60,'#ffffff'); g.globalAlpha=1; } }); }
-function _listsArenaTex(){ const key='arena'+tourney.keep; let c=_listsSpr.get(key); if(c) return c; const P=_listsPal(), S=1024, C=S/2, R=_listsR()*LISTS_K;
-  c=_listsCanvas(S,S); const g=c.getContext('2d'); g.fillStyle=P.outer; g.fillRect(0,0,S,S);
-  g.fillStyle=P.sand; g.beginPath(); g.arc(C,C,R+18,0,7); g.fill();
-  let h=12345; const rnd=()=>{ h=(h*1103515245+12345)>>>0; return (h>>>8)/16777216; };
-  for(let i=0;i<5000;i++){ const a=rnd()*7, r=Math.sqrt(rnd())*(R+18); g.fillStyle=rnd()<0.5?P.sandL:P.sandD; g.fillRect(C+Math.cos(a)*r, C+Math.sin(a)*r, 2, 1); }
-  g.strokeStyle='rgba(0,0,0,.08)'; g.lineWidth=2; for(let r=30;r<R+18;r+=22){ g.beginPath(); g.arc(C,C,r,0,7); g.stroke(); }
-  _listsSpr.set(key,c); return c; }
-// project the world: arena pixels (ax,ay) → texture units, then the row-by-row floor and a projector for everything standing
-function _listsView(g,LW,LH,tex,cx,cy,ang,sky,walls){
-  const HZ=Math.round(LH*LISTS.horizon), F=LW*0.62, H=LISTS.height, fx=Math.cos(ang), fy=Math.sin(ang), rx=-fy, ry=fx, ex=cx-fx*LISTS.back, ey=cy-fy*LISTS.back;
-  g.setTransform(1,0,0,1,0,0); g.imageSmoothingEnabled=false;
-  const gr=g.createLinearGradient(0,0,0,HZ); gr.addColorStop(0,sky[0]); gr.addColorStop(1,sky[1]); g.fillStyle=gr; g.fillRect(0,0,LW,HZ+1);
-  g.fillStyle=walls; for(let x=0;x<LW;x+=2){ const a=ang+(x-LW/2)/LW*1.2, t=Math.sin(a*6)>0.3?12:7; g.fillRect(x,HZ-t-12,2,t+12); if(Math.sin(a*6)>0.3 && (x%6)<2) g.fillRect(x,HZ-t-16,2,4); }
-  for(let y=HZ+1;y<LH;y++){ const z=H*F/(y-HZ), sx=ex+fx*z, sy=ey+fy*z, s=F/z;
-    g.save(); g.beginPath(); g.rect(0,y,LW,1); g.clip(); g.setTransform(rx*s,fx*s,ry*s,fy*s,LW/2-(sx*rx+sy*ry)*s,y-(sx*fx+sy*fy)*s); g.drawImage(tex,0,0); g.restore(); }
-  return (wx,wy,wz)=>{ const dx=wx-ex, dy=wy-ey, z=dx*fx+dy*fy; if(z<4) return null; const s=F/z; return [LW/2+(dx*rx+dy*ry)*s, HZ+(H-(wz||0))*s, s, z]; };
-}
-function _listsStamp(g,img,sx,sy,s,k){ const w=Math.max(1,Math.round(img.width*s*k)), h=Math.max(1,Math.round(img.height*s*k)); g.imageSmoothingEnabled=false; g.drawImage(img,Math.round(sx-w/2),Math.round(sy-h),w,h); return [Math.round(sx-w/2),Math.round(sy-h),w,h]; }
-function _listsRing(g,P3,r,h0,h1,cols,crowd){ const N=64, C=512, segs=[];
-  for(let i=0;i<N;i++){ const a0=i/N*6.2832, a1=(i+1)/N*6.2832, A=P3(C+Math.cos(a0)*r,C+Math.sin(a0)*r,h0), B=P3(C+Math.cos(a1)*r,C+Math.sin(a1)*r,h0), A2=P3(C+Math.cos(a0)*r,C+Math.sin(a0)*r,h1), B2=P3(C+Math.cos(a1)*r,C+Math.sin(a1)*r,h1);
-    if(A&&B&&A2&&B2) segs.push({A,B,A2,B2,i,z:(A[3]+B[3])/2}); }
-  segs.sort((p,q)=>q.z-p.z).forEach(({A,B,A2,B2,i})=>{ g.fillStyle=cols[i%2]; g.beginPath(); g.moveTo(A[0],A[1]); g.lineTo(B[0],B[1]); g.lineTo(B2[0],B2[1]); g.lineTo(A2[0],A2[1]); g.closePath(); g.fill();
-    if(crowd) for(let k=0;k<4;k++){ const t=(k+0.5)/4, X=A2[0]+(B2[0]-A2[0])*t, Y=A2[1]+(B2[1]-A2[1])*t+(A[1]-A2[1])*0.25, s=Math.max(1,A[2]*2.4), bob=((tourney.t/8+i+k)|0)%2;
-      g.fillStyle=['#d8a878','#a8784a','#e8c0a0','#c08860'][(i+k)%4]; g.fillRect(Math.round(X-s/2),Math.round(Y-s-bob),Math.max(1,Math.round(s)),Math.max(1,Math.round(s)));
-      g.fillStyle=['#c82a2a','#2a4a9a','#d8b04a','#2a7a3a','#7a3a9a'][(i*3+k)%5]; g.fillRect(Math.round(X-s*0.7),Math.round(Y-bob),Math.max(1,Math.round(s*1.4)),Math.max(1,Math.round(s*1.6))); } }); }
-function _listsT(s,x,y,col,size,align){ ctx.font='bold '+(size||8)+'px monospace'; ctx.textAlign=align||'left'; ctx.lineJoin='round'; ctx.miterLimit=2; ctx.lineWidth=3; ctx.strokeStyle='#06101c'; ctx.strokeText(s,x,y); ctx.fillStyle=col; ctx.fillText(s,x,y); ctx.textAlign='left'; ctx.lineJoin='miter'; ctx.miterLimit=10; }
-function _listsBar(x,y,w,label,f,col,right){ _listsT(label,right?x+w:x,y-3,'#f4eede',7,right?'right':'left'); px(x,y,w,6,'#0c0a14'); px(right?x+w-1-Math.round((w-2)*f):x+1,y+1,Math.round((w-2)*Math.max(0,Math.min(1,f))),4,col); }
-function _listsCall(s,col){ tourney.callout=s; tourney.calloutT=60; tourney.calloutCol=col||'#f4d878'; }
-
-// ── the stick in the arena ──
-const LISTS_TURN=0.045;                // melee: radians a frame the knight turns
-function _listsTarget(){ let best=null, bd=1e9; tourney.foes.forEach(fo=>{ if(!fo.alive) return; const d=Math.hypot(fo.x-tourney.px,fo.y-tourney.py); if(d<bd){ bd=d; best=fo; } }); return best; }
-const _listsLocked=()=>tourney.mode!=='waves';
-function _listsMove(f){
-  const h=tourney.held, spd=1.5*f, t=_listsTarget();
-  let fx, fy;
-  if(_listsLocked() && t){ const vx=t.x-tourney.px, vy=t.y-tourney.py, d=Math.hypot(vx,vy)||1; fx=vx/d; fy=vy/d; tourney.heading=Math.atan2(fy,fx);
-    let mv=0, ms=0; if(h.UP) mv+=1; if(h.DOWN) mv-=1; if(h.LEFT) ms-=1; if(h.RIGHT) ms+=1;          // ↑↓ close in / back off; ◀ ▶ circle him
-    if(mv>0 && d<14) mv=0;
-    if(mv||ms){ const n=Math.hypot(mv,ms); tourney.px+=(fx*mv+(-fy)*ms)/n*spd; tourney.py+=(fy*mv+fx*ms)/n*spd; tourney.moving=true; } else tourney.moving=false;
-  } else {
-    if(tourney.heading===undefined) tourney.heading=-Math.PI/2;
-    if(h.LEFT) tourney.heading-=LISTS_TURN*f; if(h.RIGHT) tourney.heading+=LISTS_TURN*f;          // ◀ ▶ turn, ↑ ↓ forward and back
-    fx=Math.cos(tourney.heading); fy=Math.sin(tourney.heading);
-    const mv=(h.UP?1:0)-(h.DOWN?0.7:0); if(mv){ tourney.px+=fx*mv*spd; tourney.py+=fy*mv*spd; tourney.moving=true; } else tourney.moving=false;
-  }
-  // the arena is round: keep everyone inside the barrier
-  const [cx,cy]=_listsC(), R=_listsR()-6;
-  const clampIn=(o,kx,ky)=>{ const dx=o[kx]-cx, dy=o[ky]-cy, d=Math.hypot(dx,dy); if(d>R){ o[kx]=cx+dx/d*R; o[ky]=cy+dy/d*R; } };
-  clampIn(tourney,'px','py'); tourney.foes.forEach(fo=>{ if(fo.alive) clampIn(fo,'x','y'); });
-  // the old hit test reads a four-way facing: give it the nearest of the four to where he's really looking
-  tourney.pdir=Math.abs(fx)>Math.abs(fy)?(fx<0?'left':'right'):(fy<0?'up':'down');
-}
-// ── the field combo: every third blow in quick succession is the Ground Pound, round about him ──
-function _listsPound(){ const gp=(typeof groundPoundFor==='function')?groundPoundFor(player.equip&&player.equip.weapon):{ radius:2.3, mult:1.6, knock:14, color:'#ffe87a', heal:0 };
-  const R=gp.radius*TILE; tourney.pound=26; tourney.poundCol=gp.color; let hit=0;
-  tourney.foes.forEach(fo=>{ if(!fo.alive) return; const vx=fo.x-tourney.px, vy=fo.y-tourney.py, d=Math.hypot(vx,vy); if(d>R) return;
-    let dmg=Math.max(1,Math.round(player.atk*gp.mult)); fo.hp-=dmg; fo.hurt=8; hit++;
-    if(_listsOpen(fo)){ const m=d||1; fo.kx=vx/m*gp.knock*0.6; fo.ky=vy/m*gp.knock*0.6; fo.knock=12; }   // it throws back an open foe; a raised guard holds (and his attack isn't wiped either way)
-    if(fo.hp<=0) fo.alive=false; });
-  if(gp.heal) tourney.php=Math.min(tourney.pmax,tourney.php+gp.heal);
-  _listsCall('GROUND POUND!',gp.color); return hit; }
-// a challenger is open while he winds up, while he lunges, and while he staggers (knocked back, or just hurt)
-function _listsOpen(fo){ return !!(fo.alive && (tourney.mode==='waves' || fo.wind || fo.knock>0 || fo.stagger>0 || fo.recover>0)); }   // open: winding up, thrown back, staggered by a parry, or recovering from his lunge — mid-lunge his shield is forward   // the melee's rank and file don't fence: only a duel's champion keeps his guard up
-const _listsRawPress=tourneyPress;
-tourneyPress=function(k){
-  if(!tourney.active) return;
-  if(tourney.joust) return _joustPress(k);
-  if(tourney.rest){ if(k==='B') return;                              // no potions in the lists (Zak); Ⓑ does nothing between bouts
-    const r=_listsRawPress(k); if(tourney.mode==='ladder' && tourney.active) _listsCall('BOUT '+tourney.round+' OF '+TOURNEY_LADDER_ROUNDS,'#f4d878'); return r; }
-  if(k==='A'){ if(tourney.swing>0||tourney.pound>0) return;
-    tourney.combo=(tourney.comboT>0)?(tourney.combo||0)+1:1; tourney.comboT=54;
-    const before=tourney.foes.map(fo=>fo.hp), open=tourney.foes.map(_listsOpen);
-    if(tourney.combo>=3){ tourney.combo=0; tourney.swing=14; _listsPound(); }
-    else _listsRawPress('A');
-    let clang=false, landed=false;
-    tourney.foes.forEach((fo,i)=>{ const lost=before[i]-fo.hp; if(lost<=0) return;
-      if(tourney.pound<=0 && (fo.wind||fo.lunge) && !(fo.stagger>0)){ fo.knock=0; fo.kx=0; fo.ky=0; }   // committed to his attack, he powers through an ordinary blow (only a parry or the Pound checks him)
-      if(!open[i]){ fo.knock=0; fo.kx=0; fo.ky=0; fo.hp=before[i]-Math.max(1,Math.round(lost*(tourney.pound>0?0.5:0.2))); fo.alive=fo.hp>0; clang=true;   // on his shield: a fifth (half for the Pound)
-        fo.clangs=(fo.clangs||0)+1;
-        if(fo.clangs>=3 && fo.alive){ fo.clangs=0; const rd=Math.max(1,Math.round(fo.dmg*1.2*(tourney.guard?TOURNEY_GUARD_CUT:1)));   // three on his shield and he ripostes: hammering a raised guard is how you lose
-          tourney.php-=rd; tourney.inv=Math.max(tourney.inv,30); tourney._riposte=40; if(tourney.php<=0){ exitTourney(false,false); return; } } }
-      else { landed=true; fo.clangs=0; } });
-    if(tourney._riposte===40){ tourney._riposte=0; _listsCall('RIPOSTE! HE TURNS YOUR BLADE','#e0563a'); return; }
-    if(tourney.pound<=0){ if(landed) _listsCall(tourney.combo===2?'TWO!':'HIT!','#fff2c8'); else if(clang) _listsCall('CLANG — ON HIS SHIELD','#cfd6e0'); }
-    return; }
-  return _listsRawPress(k);
-};
-const _listsRawTick=tourneyTick;
-tourneyTick=function(dt){
-  if(!tourney.active) return;
-  const f=(dt||16.6667)/16.6667;
-  if(tourney.joust){ _joustTick(f); return; }
-  if(tourney.rest){ _listsRawTick(dt); return; }
-  const held=tourney.held, php=tourney.php, wasGuard=tourney.guard&&tourney.parry>0; tourney.held={};   // the old tick moves on screen axes: the arena moves him instead
-  _listsRawTick(dt); tourney.held=held;
-  if(!tourney.active) return;
-  if(tourney.php<php && !tourney.guard && tourney.swing>0){ tourney.php-=Math.round((php-tourney.php)*0.5); _listsCall('COUNTER-HIT!','#e0563a'); if(tourney.php<=0){ exitTourney(false,false); return; } }   // caught mid-swing by his lunge: half again as much
-  else if(tourney.php<php) _listsCall(tourney.guard?'BLOCKED':'HIT!', tourney.guard?'#cfe0ff':'#e0563a');
-  else if(wasGuard && tourney.inv>=29){ _listsCall('PARRIED! STRIKE NOW','#fff2c8'); tourney.foes.forEach(fo=>{ if(fo.alive && fo.knock>0) fo.stagger=50; }); }
-  tourney.foes.forEach(fo=>{ if(fo.stagger>0) fo.stagger-=f; if(fo.recover>0) fo.recover-=f; if(fo._lunging && !fo.lunge) fo.recover=24; fo._lunging=!!fo.lunge; });   // a moment to punish after each lunge
-  if(tourney.comboT>0) tourney.comboT-=f; else tourney.combo=0;
-  if(tourney.pound>0) tourney.pound-=f; if(tourney.calloutT>0) tourney.calloutT-=f;
-  _listsMove(f);
-  // a wind-up you can see coming
-  tourney.foes.forEach(fo=>{ if(fo.alive && fo.wind && !fo._told){ fo._told=1; if(_listsLocked()) _listsCall('HE WINDS UP — HOLD Ⓑ!','#fff2c8'); } if(!fo.wind) fo._told=0; });
-  tourney.camAng=(tourney.camAng===undefined)?tourney.heading:tourney.camAng+(((tourney.heading-tourney.camAng+Math.PI*3)%(Math.PI*2))-Math.PI)*Math.min(1,0.12*f);
-};
-const _listsLegacyDraw=drawTourney;
-let _listsLow=null;
-drawTourney=function(){
-  if(tourney.joust) return _joustDraw();
-  const LW=VW, LH=VH; if(!_listsLow||_listsLow.width!==LW||_listsLow.height!==LH) _listsLow=_listsCanvas(LW,LH);
-  const g=_listsLow.getContext('2d'), P=_listsPal(), [cx,cy]=_listsC(), K=LISTS_K, T=(x,y)=>[(x-cx)*K+512,(y-cy)*K+512];
-  const me=T(tourney.px,tourney.py), ang=tourney.camAng!==undefined?tourney.camAng:-Math.PI/2;
-  const P3=_listsView(g,LW,LH,_listsArenaTex(),me[0],me[1],ang,P.sky,P.walls), R=_listsR()*K;
-  _listsRing(g,P3,R+40,0,26,P.stand,true); _listsRing(g,P3,R+16,0,7,P.rail,false);
-  for(let i=0;i<12;i++){ const a=i/12*6.2832+0.13, x=512+Math.cos(a)*(R+28), y=512+Math.sin(a)*(R+28), A=P3(x,y,0), B=P3(x,y,40); if(!A||!B) continue;
-    g.fillStyle='#3a2414'; g.fillRect(Math.round(A[0]),Math.round(B[1]),Math.max(1,Math.round(A[2]*1.2)),Math.round(A[1]-B[1])); g.fillStyle=P.banner[i%2]; g.fillRect(Math.round(A[0]+A[2]),Math.round(B[1]+A[2]),Math.max(2,Math.round(A[2]*8)),Math.max(3,Math.round(A[2]*14))); }
-  const list=[];
-  tourney.foes.forEach((fo,i)=>{ if(!fo.alive) return; const w=T(fo.x,fo.y), q=P3(w[0],w[1],0); if(!q) return;
-    const pose=fo.hurt>0?'hurt':fo.wind?'wind':fo.lunge?'lunge':'circle', col=P.foes[i%P.foes.length];
-    list.push({z:q[3],draw:()=>{ const r=_listsStamp(g,_listsFoe(col,pose),q[0],q[1],q[2],0.32);
-      if(fo.wind){ g.fillStyle='#fff2c8'; g.fillRect(Math.round(q[0]-1),Math.round(r[1]-q[2]*4),2,Math.max(2,Math.round(q[2]*3))); g.fillRect(Math.round(q[0]-1),Math.round(r[1]-q[2]*0.6),2,2); }
-      if(!_listsLocked()){ const fr=Math.max(0,fo.hp/fo.maxHp); g.fillStyle='#0c0a14'; g.fillRect(r[0],r[1]-4,r[2],3); g.fillStyle='#e0563a'; g.fillRect(r[0],r[1]-4,Math.round(r[2]*fr),3); } }}); });
-  const mq=P3(me[0],me[1],0);
-  if(mq) list.push({z:mq[3],draw:()=>{ const pose=tourney.pound>13?'pound':tourney.guard?'guard':tourney.swing>0?'swing':'ready', lift=tourney.pound>13?Math.round(Math.sin((26-tourney.pound)/13*Math.PI)*mq[2]*3):0;
-    _listsStamp(g,_listsKnight(pose),mq[0],mq[1]-lift,mq[2],0.24);
-    if(tourney.pound>0 && tourney.pound<=13){ const u=1-tourney.pound/13, rr=(8+u*_listsR()*0.6)*mq[2]; g.globalAlpha=0.9*(1-u); g.strokeStyle=tourney.poundCol||'#ffe87a'; g.lineWidth=2; g.beginPath(); g.ellipse(mq[0],mq[1]-1,rr,rr*0.25,0,0,7); g.stroke(); g.globalAlpha=1; } }});
-  list.sort((a,b)=>b.z-a.z).forEach(o=>o.draw());
-  ctx.save(); ctx.imageSmoothingEnabled=false; ctx.drawImage(_listsLow,0,0,LW,LH); ctx.restore();
-  // the heads-up: your health, the foe's (one-on-one) or the wave (melee), the contest, the combo, the call
-  const th=TOURNEY_THEMES[tourney.keep]||{name:'The Lists'};
-  _listsBar(6,14,Math.round(VW*0.42),'YOU',tourney.php/tourney.pmax,'#5fd36a');
-  const t=_listsTarget();
-  if(_listsLocked()&&t) _listsBar(VW-6-Math.round(VW*0.42),14,Math.round(VW*0.42),(t.title||'CHAMPION').toUpperCase().slice(0,18),t.hp/t.maxHp,'#e0563a',true);
-  else _listsT('WAVE '+tourney.round+'/3 · '+tourney.foes.filter(f=>f.alive).length+' LEFT',VW-6,20,'#f4d878',8,'right');
-  _listsT(th.name.toUpperCase()+(tourney.mode==='ladder'?' · BOUT '+tourney.round+'/'+TOURNEY_LADDER_ROUNDS:''),VW/2,34,'#f4d878',7,'center');
-  if(tourney.combo>0 && tourney.comboT>0) _listsT('COMBO '+tourney.combo+'/3',VW-8,VH*0.70,'#f4d878',8,'right');
-  if(tourney.calloutT>0){ ctx.globalAlpha=Math.min(1,tourney.calloutT/20); _listsT(tourney.callout,VW/2,Math.round(VH*0.42),tourney.calloutCol,10,'center'); ctx.globalAlpha=1; }
-  // in the melee, an arrow at the edge for anyone coming at you from out of sight
-  if(!_listsLocked()) tourney.foes.forEach(fo=>{ if(!fo.alive) return; const a=Math.atan2(fo.y-tourney.py,fo.x-tourney.px)-ang, rel=((a+Math.PI*3)%(Math.PI*2))-Math.PI; if(Math.abs(rel)<0.55) return;
-    const side=rel<0?-1:1, y=Math.round(VH*0.55+Math.max(-1,Math.min(1,(Math.abs(rel)-1.6)))*VH*0.15), x=side<0?4:VW-4;
-    ctx.fillStyle=fo.lunge||fo.wind?'#ff5a4a':'#e8a040'; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-side*7,y-5); ctx.lineTo(x-side*7,y+5); ctx.fill(); });
-  if(tourney.rest){ ctx.fillStyle='rgba(8,6,14,.72)'; ctx.fillRect(0,0,VW,VH);
-    const bw=Math.min(VW-24,184), bx=(VW-bw)/2, by=VH/2-34; px(bx,by,bw,62,'#1a1424'); px(bx,by,bw,2,th.trim); px(bx,by+60,bw,2,'#000');
-    _listsT('BOUT WON',VW/2,by+16,'#7ad07a',9,'center'); const left=TOURNEY_LADDER_ROUNDS-tourney.round;
-    _listsT(left+' challenger'+(left===1?'':'s')+' still to come',VW/2,by+30,'#c8b8e0',7,'center');
-    px(bx+bw/2-30,by+36,60,5,'#3a1018'); px(bx+bw/2-30,by+36,Math.max(0,Math.round(60*tourney.php/tourney.pmax)),5,'#5ad06a');
-    _listsT('Ⓐ Next Bout',VW/2,by+54,'#ffe04a',7,'center'); }
-};
-
-// ════════════════════════════════════════════════════════════════
-//  🐎 THE JOUST — three passes down the lists, lance against shield
-//  The stick lays your lance on his shield (it bobs with his horse; your aim drifts with yours); Ⓐ strikes as you meet
-//  (the meter's green band); hold Ⓑ to brace — his blow lands at a third, yours at two thirds. Knock his health out
-//  and he's unhorsed; after three passes the one with more left wins. Its own contest, and the Grand Tournament's first bout.
-// ════════════════════════════════════════════════════════════════
-const JOUST_GAP=360, JOUST_SPEED=4.2;    // texture units apart at the start of a pass; closing per frame (both horses)
-const JOUST_SWEET=[14,60], JOUST_PERFECT=[28,44];   // ≈ 0.18 s and 0.06 s at full gallop   // the strike window, by how far apart you still are
-function _joustBegin(foeName, skill){
-  tourney.joust={ pass:1, passes:3, phase:'charge', gap:JOUST_GAP, me:100, foe:100, name:foeName||'A Challenger', skill:skill||0.6,
-    aimX:0, aimY:0, struck:null, braced:false, t:0, wait:0, said:null };
-  tourney.calloutT=0; _listsCall('LOWER YOUR LANCE!','#f4d878'); }
-function _joustShield(J){ return [Math.sin(J.t*0.05+J.pass*1.7)*0.45, Math.sin(J.t*0.037+J.pass)*0.25]; }
-function _joustPress(k){ const J=tourney.joust; if(!J) return;
-  if(k==='A' && J.phase==='charge' && !J.struck){ const g=J.gap; J.struckGap=g;
-    const timing=(g>=JOUST_PERFECT[0]&&g<=JOUST_PERFECT[1])?1:(g>=JOUST_SWEET[0]&&g<=JOUST_SWEET[1])?0.65:0;
-    const sh=_joustShield(J), miss=Math.hypot(J.aimX-sh[0],J.aimY-sh[1]), aim=Math.max(0,1-miss/0.55);
-    J.struck={ timing, aim, dmg:Math.round(48*timing*aim*(J.braced?0.66:1)) }; } }
-function _joustTick(f){ const J=tourney.joust, h=tourney.held; tourney.t+=f; J.t+=f;
-  if(tourney.calloutT>0) tourney.calloutT-=f;
-  if(J.phase==='charge'){
-    J.braced=!!tourney.guard;
-    const k=0.035*f; if(h.LEFT) J.aimX-=k; if(h.RIGHT) J.aimX+=k; if(h.UP) J.aimY-=k; if(h.DOWN) J.aimY+=k;
-    J.aimX+=Math.sin(J.t*0.11)*0.006*f; J.aimY+=Math.cos(J.t*0.16)*0.005*f;          // the lance wanders with your horse's stride
-    J.aimX=Math.max(-1,Math.min(1,J.aimX)); J.aimY=Math.max(-1,Math.min(1,J.aimY));
-    J.gap-=JOUST_SPEED*f*Math.min(1,0.4+J.t/40);
-    if(J.gap<=0){ // you meet
-      const mine=J.struck?J.struck.dmg:0, pat=[1,0.75,1][(J.pass-1)%3], his=Math.round(42*J.skill*pat*(J.braced?0.34:1));
-      J.foe=Math.max(0,J.foe-mine); J.me=Math.max(0,J.me-his);
-      J.said = mine>=38?'SQUARE ON THE SHIELD! HIS LANCE SHATTERS':mine>=18?'A SOLID HIT':mine>0?'A GLANCING BLOW':J.struck?(J.struck.timing?'MISSED HIS SHIELD':'TOO EARLY — OR TOO LATE'):'YOU NEVER STRUCK';
-      J.took=his; J.phase='pass'; J.wait=90; J.gap=0;
-      _listsCall(J.said, mine>=38?'#fff2c8':mine>0?'#5fd36a':'#e0563a'); } }
-  else if(J.phase==='pass'){ J.wait-=f; J.gap-=JOUST_SPEED*f;
-    if(J.wait<=0){
-      if(J.foe<=0||J.me<=0||J.pass>=J.passes){ J.phase='done'; J.wait=80; const won=J.foe<J.me; J.won=won;
-        _listsCall(won?(J.foe<=0?'UNHORSED! THE LISTS ARE YOURS':'YOU WIN ON THE PASSES'):(J.me<=0?'UNHORSED!':'HE WINS ON THE PASSES'), won?'#fff2c8':'#e0563a'); }
-      else { J.pass++; J.phase='charge'; J.gap=JOUST_GAP; J.struck=null; J.t=0; _listsCall('PASS '+J.pass+' OF '+J.passes,'#f4d878'); } } }
-  else if(J.phase==='done'){ J.wait-=f; if(J.wait<=0){ const won=J.won; tourney.joust=null;
-      if(tourney.mode==='ladder'){ if(won){ tourney.foes.forEach(fo=>fo.alive=false); tourney.rest=true; } else { tourney.php=0; exitTourney(false,false); } }
-      else exitTourney(won,false); } }
-}
-let _joustTex=null;
-function _joustListsTex(){ if(_joustTex) return _joustTex; const S=1024, c=_listsCanvas(S,S), g=c.getContext('2d'); g.fillStyle='#4e8a4a'; g.fillRect(0,0,S,S);
-  g.fillStyle='#c8a870'; g.fillRect(S/2-90,0,180,S); let h=7; const rnd=()=>{ h=(h*1103515245+12345)>>>0; return (h>>>8)/16777216; };
-  for(let i=0;i<3000;i++){ g.fillStyle=rnd()<0.5?'#d8b880':'#b89860'; g.fillRect(S/2-90+rnd()*180,rnd()*S,2,1); }
-  for(let y=0;y<S;y+=40){ g.fillStyle='rgba(0,0,0,.08)'; g.fillRect(S/2-90,y,180,2); } return (_joustTex=c); }
-function _joustRiderBack(){ return _listsSprite('jb'+(player.livery||''),48,64,(g,px)=>{ const liv=player.livery==='champion'?['#f4eede','#d8b04a']:['#3b6fd4','#5a8ae8'];
-  px(13,46,5,14,'#6a4a2a'); px(30,46,5,14,'#6a4a2a'); px(12,58,7,3,'#2a2018'); px(29,58,7,3,'#2a2018');
-  const w=[8,12,14,16,16,16,16,14,12,10,8]; for(let k=0;k<11;k++){ px(24-w[k]-1,32+k,w[k],1,'#8a5a32'); px(25,32+k,w[k],1,'#8a5a32'); }
-  px(10,28,28,8,'#2a4a9a'); px(10,28,28,2,'#d8b04a'); px(22,30,4,14,'#4a2a12');
-  px(17,14,14,14,liv[0]); px(17,14,4,14,liv[1]); px(19,6,10,9,'#c9cdd6'); px(21,2,4,5,'#e8452f'); px(25,0,4,4,'#e8452f');
-  px(29,16,12,14,'#141c2e'); px(30,17,10,12,'#2a4a9a'); px(33,18,3,10,'#d8b04a'); }); }
-function _joustRiderFront(col){ return _listsSprite('jf'+JSON.stringify(col),56,72,(g,px)=>{
-  px(18,52,6,16,'#3a2a1a'); px(32,52,6,16,'#3a2a1a'); px(16,40,24,16,'#5a3a22'); px(22,28,12,16,'#5a3a22'); px(24,26,8,6,'#2a2a2a');
-  px(12,38,32,10,col.tabard); px(12,38,32,2,col.trim); px(20,10,16,20,col.tabard); px(26,10,4,20,col.trim);
-  px(22,0,12,11,col.steel); px(23,5,10,2,'#141418'); px(26,0,4,3,col.plume); px(4,14,14,16,'#141418'); px(5,15,12,14,col.shield); px(9,17,4,10,col.trim); }); }
-function _joustDraw(){
-  const J=tourney.joust, LW=VW, LH=VH, P=_listsPal(); if(!_listsLow||_listsLow.width!==LW||_listsLow.height!==LH) _listsLow=_listsCanvas(LW,LH);
-  const g=_listsLow.getContext('2d'), myY=760, foeY=myY-Math.max(-60,J.gap), bob=Math.sin(tourney.t*0.5)*1.2;
-  const P3=_listsView(g,LW,LH,_joustListsTex(),542,myY+40,-Math.PI/2,['#6a9ad8','#d8e8f4'],P.walls);
-  for(let y=200;y<myY-30;y+=24){ const A=P3(512,y,0), B=P3(512,y+24,0), A2=P3(512,y,6), B2=P3(512,y+24,6); if(!A||!B||!A2||!B2) continue;
-    g.fillStyle=((y-200)/24|0)%2?'#d8b04a':'#8a1f2a'; g.beginPath(); g.moveTo(A[0],A[1]); g.lineTo(B[0],B[1]); g.lineTo(B2[0],B2[1]); g.lineTo(A2[0],A2[1]); g.fill(); }
-  for(const sx of [420,604]) for(let y=150;y<myY;y+=30){ const A=P3(sx,y,0), B=P3(sx,y+30,0), A2=P3(sx,y,30), B2=P3(sx,y+30,30); if(!A||!B||!A2||!B2) continue;
-    g.fillStyle=(y/30)%2?P.stand[0]:P.stand[1]; g.beginPath(); g.moveTo(A[0],A[1]); g.lineTo(B[0],B[1]); g.lineTo(B2[0],B2[1]); g.lineTo(A2[0],A2[1]); g.fill();
-    for(let k=0;k<3;k++){ const t=(k+0.5)/3, X=A2[0]+(B2[0]-A2[0])*t, Y=A2[1]+(B2[1]-A2[1])*t+(A[1]-A2[1])*0.3, s=Math.max(1,A[2]*3); g.fillStyle=['#c82a2a','#2a4a9a','#d8b04a'][((y/30)+k)%3|0]; g.fillRect(Math.round(X-s/2),Math.round(Y-s),Math.max(1,Math.round(s)),Math.max(1,Math.round(s*1.6))); } }
-  let fr=null; const fq=J.gap>-20?P3(492,foeY,0):null;
-  if(fq){ fr=_listsStamp(g,_joustRiderFront(P.foes[0]),fq[0],fq[1]+bob,fq[2],0.28); g.strokeStyle='#e8e0cf'; g.lineWidth=1; g.beginPath(); g.moveTo(fr[0]+fr[2]*0.78,fr[1]+fr[3]*0.35); g.lineTo(LW/2+18,LH*0.64); g.stroke(); }
-  const mq=P3(542,myY,0), mr=_listsStamp(g,_joustRiderBack(),mq[0],mq[1]-bob,mq[2],0.24);
-  if(fr && J.phase==='charge'){ const sh=_joustShield(J), sx=fr[0]+fr[2]*(0.2+sh[0]*0.18), sy=fr[1]+fr[3]*(0.32+sh[1]*0.12), ax=fr[0]+fr[2]*(0.2+J.aimX*0.18), ay=fr[1]+fr[3]*(0.32+J.aimY*0.12);
-    g.strokeStyle='#f4d878'; g.lineWidth=2; g.beginPath(); g.moveTo(mr[0]+4,mr[1]+mr[3]*0.4); g.lineTo(ax,ay); g.stroke();
-    g.strokeStyle='#fff2c8'; g.lineWidth=1; g.beginPath(); g.arc(ax,ay,Math.max(2,fr[2]*0.12),0,7); g.stroke(); }
-  ctx.save(); ctx.imageSmoothingEnabled=false; ctx.drawImage(_listsLow,0,0,LW,LH); ctx.restore();
-  _listsBar(6,14,Math.round(VW*0.42),'YOU',J.me/100,'#5fd36a'); _listsBar(VW-6-Math.round(VW*0.42),14,Math.round(VW*0.42),(J.name.toUpperCase()+' · PASS '+J.pass+'/'+J.passes).slice(0,26),J.foe/100,'#e0563a',true);
-  _listsT('THE JOUST'+(tourney.mode==='ladder'?' · BOUT 1/'+TOURNEY_LADDER_ROUNDS:''),VW/2,34,'#f4d878',7,'center');
-  if(J.phase==='charge'){ const mw=Math.round(VW*0.7), mx=Math.round((VW-mw)/2), my=Math.round(VH*0.68), toX=(gp)=>mx+Math.round(mw*(1-Math.max(0,Math.min(JOUST_GAP,gp))/JOUST_GAP*1));
-    px(mx,my,mw,7,'#0c0a14'); px(toX(JOUST_SWEET[1]),my+1,toX(JOUST_SWEET[0])-toX(JOUST_SWEET[1]),5,'#5fd36a'); px(toX(JOUST_PERFECT[1]),my+1,toX(JOUST_PERFECT[0])-toX(JOUST_PERFECT[1]),5,'#bff5c4');
-    px(toX(J.gap)-1,my-2,2,11,J.struck?'#a89878':'#f4d878'); _listsT(J.struck?'STRUCK':'Ⓐ STRIKE AS YOU MEET',VW/2,my-4,'#f4eede',7,'center');
-    if(J.braced) _listsT('BRACED',VW/2,my+18,'#cfe0ff',7,'center'); }
-  if(tourney.calloutT>0){ ctx.globalAlpha=Math.min(1,tourney.calloutT/20); _listsT(tourney.callout,VW/2,Math.round(VH*0.42),tourney.calloutCol,9,'center'); ctx.globalAlpha=1; }
-}
-// the joust in the marshal's menu, and as the Grand Tournament's opening bout
-TOURNEY_MODES.splice(1,0,{mode:'joust', label:'🐎 The Joust', desc:'three passes down the lists — lance against shield'});
-// where everyone stands at the start of a bout or wave: you just south of the centre; one challenger a few paces north,
-// or a melee's challengers fanned round in front of you
-function _listsPlace(){ const [cx,cy]=_listsC(), R=_listsR(); tourney.px=cx; tourney.py=cy+R*0.35;
-  const alive=tourney.foes.filter(f=>f.alive), n=alive.length;
-  alive.forEach((fo,i)=>{ const a=-Math.PI/2+(n>1?(i/(n-1)-0.5)*1.6:0), r=n>1?R*0.55:R*0.15; fo.x=cx+Math.cos(a)*r; fo.y=cy+Math.sin(a)*r; }); }
-const _listsRawWave=tourneyWave;
-// how long a bout lasts: a challenger stands this many of your full blows; his blow takes this share of your health
-//   (set with a bot, 2026-10-07: a knight who parries and strikes back wins; one who hammers Ⓐ into a raised shield doesn't)
-const LISTS_FOE = { duel:{ hits:16, dmg:0.12 }, ladder:(r)=>({ hits:5+1.0*r, dmg:0.06+0.014*r }), waves:(w)=>({ hits:3+0.5*w, dmg:0.05+0.01*w }) };
-function _listsSize(){ const swing=Math.max(1,Math.round(player.atk)), pm=tourney.pmax||player.maxHp;
-  const S=tourney.mode==='duel'?LISTS_FOE.duel:tourney.mode==='ladder'?LISTS_FOE.ladder(tourney.round):LISTS_FOE.waves(tourney.round);
-  tourney.foes.forEach(fo=>{ fo.maxHp=fo.hp=Math.max(10,Math.round(swing*S.hits)); fo.dmg=Math.max(1,Math.round(pm*S.dmg)); }); }
-tourneyWave=function(){ _listsRawWave(); _listsSize(); if(typeof _listsC==='function' && tourney.active && tourney.round>1 && tourney.mode==='waves'){ const [cx,cy]=_listsC(), R=_listsR(), n=tourney.foes.length;
-  tourney.foes.forEach((fo,i)=>{ const a=i/n*Math.PI*2+0.4; fo.x=cx+Math.cos(a)*R*0.75; fo.y=cy+Math.sin(a)*R*0.75; }); } };   // later waves pour in from all round the barrier
-const _listsRawStart=startTourney;
-startTourney=function(keep,mode){ _listsRawStart(keep,mode); if(!tourney.active) return;
-  tourney.heading=-Math.PI/2; tourney.camAng=undefined; tourney.combo=0; tourney.comboT=0; tourney.pound=0; tourney.calloutT=0; tourney.joust=null;
-  _listsPlace();
-  if(mode==='joust'){ const L=player.level; _joustBegin(WAVE_FOES[(L+3)%WAVE_FOES.length].replace(/^A /,'').replace(/^(.)/,c=>c.toUpperCase()), 0.62); }
-  else if(mode==='ladder'){ _joustBegin(LADDER_FOES[0], 0.5); }
-};
-
 const DAY_LEN = 72*60*1000;
 let dayClock = { t: DAY_LEN*0.375, day: 1 };   // new journeys begin at 9:00 AM, day 1
 let playMs = 0;
@@ -37662,7 +37349,7 @@ bootLogo.src=BOOT_LOGO_SRC;
 const boot = { done:false, phase:'logo', t:0, cursor:0, fade:0, fin:0, fading:null, slashed:false, confirmed:false };
 const BOOT_W=240, BOOT_H=160;
 // Bumped on every export. Shown on the title screen so a cached copy is obvious.
-const BUILD_TAG = '2026-10-07-tj';  // ⚔ the knight tourneys from behind the knight: circle the champion in duels, roam the melee, his combo and Ground Pound, read the wind-up and parry; 🐎 the joust (its own contest and the Grand Tournament's first bout); no potions (_legacy: '2026-10-07-sc') · 🐎 the tourney's horse race is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
+const BUILD_TAG = '2026-10-07-sc';  // 🐎 the King's Tourney is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
 
 // ── tiny Web Audio kit (game has no audio system yet; kept self-contained) ──
 let bootAC=null;
