@@ -13973,22 +13973,6 @@ function drawLowHealthEdge(){ if(!(place.kind==='overworld'||place.kind==='inter
   const a=Math.max(since<300?(1-since/300)*0.3:0, (player.hp>0&&pct<=0.2)?0.12+0.1*Math.sin(performance.now()/260):0); if(a<=0.01) return;
   const W=VW, H=VH, gr=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.32,W/2,H/2,Math.max(W,H)*0.72); gr.addColorStop(0,'rgba(200,20,30,0)'); gr.addColorStop(1,'rgba(200,20,30,'+a.toFixed(3)+')');
   ctx.save(); ctx.setTransform(RENDER_SCALE,0,0,RENDER_SCALE,0,0); ctx.fillStyle=gr; ctx.fillRect(0,0,W,H); ctx.restore(); }
-// ── 👑 BOSS HEALTH BARS (2026-10-08) — Zak: "do the same for the boss health bars so we know where they're at".
-//    Like the knight's own bar: green, then yellow under half, red under a fifth; a pale chunk where a blow just
-//    landed that drains away after a moment; a shake when struck; and the numbers written on the bar. ──
-const _bossBars={};
-function bossBar(key,x,y,w,h,hp,max){ max=Math.max(1,max); hp=Math.max(0,Math.min(max,hp)); const now=performance.now();
-  const s=_bossBars[key]||(_bossBars[key]={ghost:hp,last:hp,t:0,shake:0});
-  if(hp<s.last){ s.ghost=Math.max(s.ghost,s.last); s.t=now; s.shake=8; } else if(hp>s.last){ s.ghost=hp; }
-  s.last=hp; if(now-s.t>350) s.ghost=Math.max(hp, s.ghost-max*0.012); if(s.shake>0) s.shake--;
-  x+=s.shake>0?Math.round(Math.sin(s.shake*2.1)*2):0;
-  const fr=hp/max, gf=Math.max(fr,Math.min(1,s.ghost/max));
-  ctx.fillStyle='#0c0810'; ctx.fillRect(x-2,y-2,w+4,h+4); ctx.fillStyle='#2a1a24'; ctx.fillRect(x,y,w,h);
-  ctx.fillStyle='#f4e0b0'; ctx.fillRect(x,y,Math.round(w*gf),h);
-  ctx.fillStyle= fr>0.5?'#4ad66a':fr>0.2?'#f2c84a':'#e8484a'; ctx.fillRect(x,y,Math.round(w*fr),h);
-  ctx.fillStyle='rgba(255,255,255,.18)'; ctx.fillRect(x,y,w,Math.max(1,Math.round(h*0.35)));
-  const txt=Math.ceil(hp)+' / '+Math.round(max), ta=ctx.textAlign; ctx.font='bold 7px monospace'; ctx.textAlign='center'; ctx.lineWidth=2; ctx.strokeStyle='#000';
-  ctx.strokeText(txt,x+w/2,y+h-1); ctx.fillStyle='#fff'; ctx.fillText(txt,x+w/2,y+h-1); ctx.textAlign=ta; ctx.lineWidth=1; }
 // ── DECOR SOLIDITY, RE-STAMPED LAST ────────────────────────────────────
 // addDecor() marks a decoration's footprint solid at creation, but later terrain
 // passes repaint those tiles and the stamp is silently lost: the Homestead clearing
@@ -21157,10 +21141,10 @@ function draw(){
     drawKnight(Math.round(player.x),Math.round(player.y));
     // boss HP bar (top) + phase name
     if(!abaddon.victory){ const P=bossCfg().phases[b.phase];
-    // _legacy: a P.color fill on rgba(0,0,0,.6), 8px tall, no numbers
-    bossBar(abaddon.who==='pretender'?'pretender':'abaddon',8,6,VW-16,9,b.hp,b.maxHp); ctx.fillStyle=P.color; ctx.fillRect(8,3,VW-16,1);   // the phase's own colour, a thread above
+    ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(8,6,VW-16,8);
+    ctx.fillStyle=P.color; ctx.fillRect(8,6,Math.round((VW-16)*Math.max(0,b.hp/b.maxHp)),8);
     ctx.fillStyle='#fff'; ctx.font='bold 7px monospace'; ctx.textAlign='center';
-    ctx.fillText((abaddon.who==='pretender'?'👑 THE PRETENDER — ':'👑 ABADDON — ')+P.name, VW/2, 25); ctx.textAlign='left'; }
+    ctx.fillText((abaddon.who==='pretender'?'👑 THE PRETENDER — ':'👑 ABADDON — ')+P.name, VW/2, 21); ctx.textAlign='left'; }
     return;
   }
   // ── 👑 STORMGATE KEEP: the walkable throne hall ──
@@ -36844,8 +36828,10 @@ function drawThroneBoss(camX,camY){
   if(typeof drawDemonKing==='function') drawDemonKing(bx-2, by-8);
   ctx.globalAlpha=1; if(b.hurt>0) b.hurt--;
   // boss HP bar (top of screen)
-  const bw=VW-40, bh=9, bxp=20, byp=VH-28;   // low, clear of the HUD  (_legacy: bh 7, an orange fill, no numbers)
-  bossBar('pretenderK',bxp,byp,bw,bh,b.hp,b.maxHp); if(b.warded){ ctx.fillStyle='rgba(156,207,255,.35)'; ctx.fillRect(bxp,byp,bw,bh); }
+  const bw=VW-40, bh=7, bxp=20, byp=VH-26;   // low, clear of the HUD
+  ctx.fillStyle='#1a1020'; ctx.fillRect(bxp-1,byp-1,bw+2,bh+2);
+  ctx.fillStyle='#3a1a1a'; ctx.fillRect(bxp,byp,bw,bh);
+  ctx.fillStyle='#e0885a'; ctx.fillRect(bxp,byp,Math.max(0,Math.round(bw*b.hp/b.maxHp)),bh);
   ctx.fillStyle='#fff'; ctx.font='bold 8px sans-serif'; ctx.textAlign='center';
   ctx.fillText(b.warded? 'THE PRETENDER KING \u2014 WARDED' : 'THE PRETENDER KING', VW/2, byp+bh+9);
   if(b.warded){ ctx.fillStyle='#9ccfff'; ctx.font='7px sans-serif'; ctx.fillText('cut down his knights to break the ward', VW/2, byp+bh+18); }
@@ -37212,10 +37198,13 @@ function drawPretender(x,y,b){
 function drawPretenderHud(){
   const b=sunBoss.boss; if(!b) return;
   const wpx=Math.min(180, VW-40), x0=Math.round(VW/2-wpx/2), y0=24;
-  ctx.fillStyle='rgba(20,12,24,0.78)'; ctx.fillRect(x0-2,y0-10,wpx+4,23);
-  ctx.font='bold 7px monospace'; ctx.textAlign='center'; ctx.fillStyle='#f0c860';
+  ctx.fillStyle='rgba(20,12,24,0.78)'; ctx.fillRect(x0-2,y0-10,wpx+4,20);
+  ctx.font='7px monospace'; ctx.textAlign='center'; ctx.fillStyle='#f0c860';
   ctx.fillText('THE PRETENDER KING', VW/2, y0-2);
-  bossBar('sunpret',x0,y0,wpx,9,b.hp,b.maxHp); if(b.state==='mirror'){ ctx.fillStyle='rgba(138,122,154,.55)'; ctx.fillRect(x0,y0,wpx,9); }   // _legacy: a 6px gold fill (grey while he mirrors), no numbers
+  ctx.fillStyle='#40202a'; ctx.fillRect(x0,y0,wpx,6);
+  ctx.fillStyle=(b.state==='mirror')?'#8a7a9a':'#f0c860';
+  ctx.fillRect(x0,y0,Math.round(wpx*(b.hp/b.maxHp)),6);
+  ctx.strokeStyle='#000'; ctx.lineWidth=1; ctx.strokeRect(x0+0.5,y0+0.5,wpx-1,5);
   ctx.textAlign='left';
 }
 function drawMadisonCage(x,y){
@@ -37277,8 +37266,11 @@ function drawShadowKingHud(camX,camY){
     ctx.fillStyle='#bfe4f4'; ctx.beginPath(); ctx.moveTo(sx,sy2-4); ctx.lineTo(sx+3,sy2+3); ctx.lineTo(sx-3,sy2+3); ctx.closePath(); ctx.fill();
     ctx.fillStyle='#e8f6ff'; ctx.fillRect(sx-1,sy2-1,2,2); });
   // the bar
-  const bw=Math.min(180, VW-40), bh=9, bxp=(VW-bw)/2, byp=VH-32;   // _legacy: bh 6, violet fills, no numbers
-  bossBar('shadowking',bxp,byp,bw,bh,b.hp,b.maxHp);
+  const bw=Math.min(180, VW-40), bh=6, bxp=(VW-bw)/2, byp=VH-30;
+  ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(bxp-2,byp-2,bw+4,bh+4);
+  ctx.fillStyle='#2a2234'; ctx.fillRect(bxp,byp,bw,bh);
+  const fr=Math.max(0,b.hp/b.maxHp);
+  ctx.fillStyle= fr<0.5? '#b090ff' : '#8a6ae0'; ctx.fillRect(bxp,byp,Math.round(bw*fr),bh);
   ctx.fillStyle='#fff'; ctx.font='bold 8px sans-serif'; ctx.textAlign='center';
   ctx.fillText('THE KING OF THE SHADOWS', VW/2, byp+bh+9);
   ctx.font='7px sans-serif'; ctx.fillStyle='#cbb8ff';
@@ -38564,7 +38556,7 @@ bootLogo.src=BOOT_LOGO_SRC;
 const boot = { done:false, phase:'logo', t:0, cursor:0, fade:0, fin:0, fading:null, slashed:false, confirmed:false };
 const BOOT_W=240, BOOT_H=160;
 // Bumped on every export. Shown on the title screen so a cached copy is obvious.
-const BUILD_TAG = '2026-10-08-hb';  // 👑 boss health bars like the knight's: green → yellow → red, the numbers on the bar, a pale chunk after each blow, a shake (Abaddon, the Pretender ×2, the King of the Shadows) (_legacy: '2026-10-08-hp') · ❤ a clearer health bar: longer, green → yellow → red, the numbers under it, a pale chunk for what a blow took, a shake when struck, a pulse and a red screen edge when low; 🔤 the canvas labels and race captions a size up, the pixel font preloaded; Squire Matthew moves on with the story; Aldric says "my child" (_legacy: '2026-10-08-tx') · 🔤 the text pass: every overlay's text scales with the screen (and ☰ System → Text Size); 📜 the story in order: lines that came too soon or went stale now follow the story, Abaddon is not re-fought (or un-won by dying), the knighting and the wedding staged true, the wedding verse Ecclesiastes 4:12, the generals' pronouns, no shared names (_legacy: '2026-10-07-si') · 🛒🍺 the shops and inns made grand: five shop halls (general store, forge, fish market, capital market, bazaar) and a two-storey inn with each town's sign over the hearth, all painted whole; the phone copy now shortens local names, proven the same program by scope (_legacy: '2026-10-07-ks') · 🛏 the homestead indoors: the knight's suite (library, fireplace, four-poster, wardrobe glass) with a walkout balcony over the farm, made over for Madison after the wedding and her place on the balcony; the family hall, the children's floor and the barn painted whole; Madison redrawn (dirty-blonde hair, four facings); the Old Mule drawn as a mule; one Sir Aldric after the wedding (_legacy: '2026-10-07-ty') · 🏇 the Tilting Yard: Stormgate's lists on the meadow under the north wall — grandstand, tilt, pavilions, racks and banners; two new north gates down from the city; Stormgate's marshals at its rail (_legacy: '2026-10-07-tk') · ⚔ tourney clean-up: you ride the joust yourself and the calls fade up in the sky; the knight seen from behind, turned square to his man, with forehand, backhand, guard, Ground Pound and hurt frames; a VICTORY / DEFEAT card that a mashed Ⓐ can't skip (_legacy: '2026-10-07-tj') · ⚔ the knight tourneys from behind the knight: circle the champion in duels, roam the melee, his combo and Ground Pound, read the wind-up and parry; 🐎 the joust (its own contest and the Grand Tournament's first bout); no potions (_legacy: '2026-10-07-sc') · 🐎 the tourney's horse race is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
+const BUILD_TAG = '2026-10-08-hp';  // ❤ a clearer health bar: longer, green → yellow → red, the numbers under it, a pale chunk for what a blow took, a shake when struck, a pulse and a red screen edge when low; 🔤 the canvas labels and race captions a size up, the pixel font preloaded; Squire Matthew moves on with the story; Aldric says "my child" (_legacy: '2026-10-08-tx') · 🔤 the text pass: every overlay's text scales with the screen (and ☰ System → Text Size); 📜 the story in order: lines that came too soon or went stale now follow the story, Abaddon is not re-fought (or un-won by dying), the knighting and the wedding staged true, the wedding verse Ecclesiastes 4:12, the generals' pronouns, no shared names (_legacy: '2026-10-07-si') · 🛒🍺 the shops and inns made grand: five shop halls (general store, forge, fish market, capital market, bazaar) and a two-storey inn with each town's sign over the hearth, all painted whole; the phone copy now shortens local names, proven the same program by scope (_legacy: '2026-10-07-ks') · 🛏 the homestead indoors: the knight's suite (library, fireplace, four-poster, wardrobe glass) with a walkout balcony over the farm, made over for Madison after the wedding and her place on the balcony; the family hall, the children's floor and the barn painted whole; Madison redrawn (dirty-blonde hair, four facings); the Old Mule drawn as a mule; one Sir Aldric after the wedding (_legacy: '2026-10-07-ty') · 🏇 the Tilting Yard: Stormgate's lists on the meadow under the north wall — grandstand, tilt, pavilions, racks and banners; two new north gates down from the city; Stormgate's marshals at its rail (_legacy: '2026-10-07-tk') · ⚔ tourney clean-up: you ride the joust yourself and the calls fade up in the sky; the knight seen from behind, turned square to his man, with forehand, backhand, guard, Ground Pound and hurt frames; a VICTORY / DEFEAT card that a mashed Ⓐ can't skip (_legacy: '2026-10-07-tj') · ⚔ the knight tourneys from behind the knight: circle the champion in duels, roam the melee, his combo and Ground Pound, read the wind-up and parry; 🐎 the joust (its own contest and the Grand Tournament's first bout); no potions (_legacy: '2026-10-07-sc') · 🐎 the tourney's horse race is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
 
 // ── tiny Web Audio kit (game has no audio system yet; kept self-contained) ──
 let bootAC=null;
