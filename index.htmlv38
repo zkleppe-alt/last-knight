@@ -738,16 +738,10 @@ const SHOP_ITEMS = {
   bread:     { name:'Loaf of Bread', emoji:'🍞', price:6,  note:'restores 15 HP' },
   // gear (bought once → added to your equipment; equip from the ☰ menu)
   shortsword:{ name:'Short Sword',  emoji:'🗡', price:30,  note:'light · +6 atk', gear:'shortsword' },
-  leather:   { name:'Leather Jerkin',emoji:'🟫', price:35, note:'breastplate · +3 def', gear:'leather' },   // _legacy: 'Leather Armor' '+5 def'
-  leather_cap:{ name:'Leather Cap',  emoji:'🧢', price:15,  note:'helm · +1 def',  gear:'leather_cap' },
-  leather_legs:{ name:'Leather Leggings', emoji:'👖', price:15, note:'legs · +1 def', gear:'leather_legs' },
-  buckler:   { name:'Wooden Buckler',emoji:'🪵', price:15,  note:'shield · +1 def', gear:'buckler' },
+  leather:   { name:'Leather Armor',emoji:'🟫', price:35,  note:'+5 def',        gear:'leather' },
   ironsword: { name:'Iron Sword',   emoji:'⚔', price:80,  note:'light · +11 atk',gear:'ironsword' },
   warhammer: { name:'War Hammer',   emoji:'🔨', price:110, note:'heavy · +18 atk',gear:'warhammer' },
-  chainmail: { name:'Chain Hauberk',emoji:'⛓', price:120, note:'breastplate · +6 def +5 hp', gear:'chainmail' },   // _legacy: 'Chainmail' '+11 def +10 hp'
-  chain_coif:{ name:'Chain Coif',   emoji:'⛑', price:45,  note:'helm · +2 def +2 hp', gear:'chain_coif' },
-  chain_legs:{ name:'Chain Chausses',emoji:'🦵', price:45, note:'legs · +2 def +2 hp', gear:'chain_legs' },
-  kite:      { name:'Kite Shield',  emoji:'🛡', price:50,  note:'shield · +2 def +1 hp', gear:'kite' },
+  chainmail: { name:'Chainmail',    emoji:'⛓', price:120, note:'+11 def +10 hp', gear:'chainmail' },
   lantern:   { name:"Forester's Lantern", emoji:'🏮', price:90, note:'lifts the fog of the deep wood', lamp:true },
 };
 inventory.wheatSeed = 0; inventory.potion = 0; inventory.bread = 0;
@@ -2379,55 +2373,23 @@ const EQUIP = {
   warhammer: { name:'War Hammer',     slot:'weapon', type:'heavy', atk:18, emoji:'🔨', special:'earthshaker' },
   greatsword:{ name:'Greatsword',     slot:'weapon', type:'heavy', atk:24, crit:0.04, emoji:'🗡', special:'earthshaker' },
   holyblade: { name:'Holy Avenger',   slot:'weapon', type:'light', atk:30, crit:0.10, emoji:'✨', special:'radiant' },
-  // ── 🛡 FIVE GEAR SLOTS (2026-10-09-gs) ── Zak: "add separate gear categories (sword, shield, helm,
-  //   breastplate, legs) with an easy simple format to add or remove gear onto the player … it would give
-  //   some value to the different gear you earn and can buy". slot is now weapon | shield | helm | body | legs.
-  //   Each old suit is its breastplate (same id, so saves and shops keep working), and its other pieces are
-  //   new and sold apart. A whole suit adds up to about what the old one gave, so the boss tuning holds.
-  /* _legacy (one armor slot):
+  // armor
   none_a:    { name:'Traveler\'s Garb',slot:'armor', def:0,  emoji:'👕' },
   leather:   { name:'Leather Armor',  slot:'armor', def:5,  emoji:'🟫' },
   chainmail: { name:'Chainmail',      slot:'armor', def:11, maxHp:10, emoji:'⛓' },
   platemail: { name:'Plate Armor',    slot:'armor', def:20, maxHp:20, emoji:'🛡' },
   armorofgod:{ name:'Armor of God',   slot:'armor', def:32, maxHp:40, emoji:'🌟' },
-  generals' armor, all slot 'armor': Miriam's Breastplate 8 def/8 hp · Deborah's Helm 12/12 · Josiah's Cloak 15/18 ·
-  Ruth's Covenant Shield 25/25 · sword_gideon was named 'Trumpet Sword' · armor_michael: { name:'Armor of God (Complete)', slot:'armor', def:40, maxHp:50 } */
-  none_a:    { name:'Traveler\'s Garb',slot:'body', def:0,  emoji:'👕' },
-  // leather (Hearthvale's shop)
-  leather:   { name:'Leather Jerkin', slot:'body',   def:3,  emoji:'🟫', suit:'leather' },
-  leather_cap:{ name:'Leather Cap',   slot:'helm',   def:1,  emoji:'🧢', suit:'leather' },
-  leather_legs:{ name:'Leather Leggings', slot:'legs', def:1, emoji:'👖', suit:'leather' },
-  buckler:   { name:'Wooden Buckler', slot:'shield', def:1,  emoji:'🪵', suit:'leather' },
-  // chain
-  chainmail: { name:'Chain Hauberk',  slot:'body',   def:6,  maxHp:5, emoji:'⛓', suit:'chainmail' },
-  chain_coif:{ name:'Chain Coif',     slot:'helm',   def:2,  maxHp:2, emoji:'⛑', suit:'chainmail' },
-  chain_legs:{ name:'Chain Chausses', slot:'legs',   def:2,  maxHp:2, emoji:'🦵', suit:'chainmail' },
-  kite:      { name:'Kite Shield',    slot:'shield', def:2,  maxHp:1, emoji:'🛡', suit:'chainmail' },
-  // plate
-  platemail: { name:'Plate Cuirass',  slot:'body',   def:10, maxHp:10, emoji:'🛡', suit:'platemail' },
-  plate_helm:{ name:'Great Helm',     slot:'helm',   def:3,  maxHp:3, emoji:'⛑', suit:'platemail' },
-  plate_legs:{ name:'Plate Greaves',  slot:'legs',   def:4,  maxHp:4, emoji:'🥾', suit:'platemail' },
-  tower:     { name:'Tower Shield',   slot:'shield', def:3,  maxHp:3, emoji:'🛡', suit:'platemail' },
-  // the paladin's (the library's old "Armor of God" — the name now belongs to the five pieces the generals give)
-  armorofgod:{ name:"Paladin's Plate",slot:'body',   def:16, maxHp:20, emoji:'🌟', suit:'armorofgod' },
-  pal_helm:  { name:"Paladin's Helm", slot:'helm',   def:5,  maxHp:6, emoji:'⛑', suit:'armorofgod' },
-  pal_legs:  { name:"Paladin's Greaves", slot:'legs', def:6, maxHp:8, emoji:'🥾', suit:'armorofgod' },
-  pal_shield:{ name:"Paladin's Shield", slot:'shield', def:5, maxHp:6, emoji:'🛡', suit:'armorofgod' },
   // ── GENERALS' signature rewards (earned by passing each theology test) ──
   staff_aiden:   { name:"Shepherd's Staff",      slot:'weapon', type:'light', atk:9,  crit:0.04, emoji:'🪄', special:'radiant' },
-  armor_miriam:  { name:"Miriam's Breastplate",  slot:'body',   def:8,  maxHp:8,  emoji:'🛡' },
+  armor_miriam:  { name:"Miriam's Breastplate",  slot:'armor',  def:8,  maxHp:8,  emoji:'🛡' },
   gaunt_caleb:   { name:'Tide Gauntlets',        slot:'weapon', type:'heavy', atk:14, emoji:'🤜', special:'earthshaker' },
-  helm_deborah:  { name:"Deborah's Helm",        slot:'helm',   def:5,  maxHp:5,  emoji:'⛑' },
-  cloak_josiah:  { name:"Josiah's Cloak",        slot:'body',   def:11, maxHp:12, emoji:'🧥' },
+  helm_deborah:  { name:"Deborah's Helm",        slot:'armor',  def:12, maxHp:12, emoji:'⛑' },
+  cloak_josiah:  { name:"Josiah's Cloak",        slot:'armor',  def:15, maxHp:18, emoji:'🧥' },
   ring_lydia:    { name:'Ring of Perseverance',  slot:'weapon', type:'light', atk:20, crit:0.08, emoji:'💍', special:'holyslash' },
-  // ✝ THE ARMOR OF GOD (Eph 6:13-17) — one piece from each late chapel, each named for its general:
-  //   Lydia (greaves), Gideon (sword), Ruth (shield), Samuel (helmet), Michael (breastplate). All five: "Stand firm".
-  sword_gideon:  { name:"Gideon's Sword of the Spirit", aog:true, slot:'weapon', type:'light', atk:24, crit:0.10, emoji:'🗡', special:'holyslash' },
-  shield_ruth:   { name:"Ruth's Shield of Faith", aog:true, slot:'shield', def:7, maxHp:9, emoji:'🛡' },
+  sword_gideon:  { name:'Trumpet Sword',         slot:'weapon', type:'light', atk:24, crit:0.10, emoji:'🗡', special:'holyslash' },
+  shield_ruth:   { name:"Ruth's Covenant Shield",slot:'armor',  def:25, maxHp:25, emoji:'🛡' },
   bow_samuel:    { name:'Prophetic Bow',         slot:'weapon', type:'light', atk:32, crit:0.14, emoji:'🏹', special:'radiant' },
-  armor_michael: { name:"Michael's Breastplate of Righteousness", aog:true, slot:'body', def:18, maxHp:22, emoji:'✨' },
-  lydia_greaves: { name:"Lydia's Gospel Greaves", aog:true, slot:'legs', def:7, maxHp:9, emoji:'🥾' },
-  samuel_helm:   { name:"Samuel's Helmet of Salvation", aog:true, slot:'helm', def:6, maxHp:8, emoji:'⛑' },
+  armor_michael: { name:'Armor of God (Complete)',slot:'armor', def:40, maxHp:50, emoji:'✨' },
 };
 // each town's general → the gear reward they grant for passing their theology test
 const DEEP_DOCTRINE = [
@@ -2535,71 +2497,6 @@ const THEOLOGY_TESTS = [
     ex:"Eschatology (last things) teaches that the Christian hope is bodily resurrection — not escape from creation but its renewal. At Christ's return (parousia), the dead in Christ are raised, the living transformed (1 Cor 15:51–54; 1 Thess 4:16–17), and God establishes a new heavens and new earth where He dwells face-to-face with His people forever (Rev 21:1–5). The resurrection of Christ is the 'firstfruits' that guarantees ours (1 Cor 15:20–23)." },
 ];
 const GENERAL_REWARD = ['staff_aiden','armor_miriam','gaunt_caleb','helm_deborah','cloak_josiah','ring_lydia','sword_gideon','shield_ruth','bow_samuel','armor_michael'];
-
-// ── 🛡 FIVE GEAR SLOTS — the rules (2026-10-09-gs) ───────────────────────────────
-// [slot, icon, label]. The Gear tab, the Character tab, recalcStats and the save all walk this list.
-const GEAR_SLOTS = [['weapon','⚔','Weapon'],['shield','🛡','Shield'],['helm','⛑','Helm'],['body','🦺','Breastplate'],['legs','🥾','Legs']];
-// ✝ THE ARMOR OF GOD — Zak: "one per late chapel, named individually after the general but together form
-//   the Armor of God". Ruth, Gideon and Michael's own gifts became their pieces; Lydia and Samuel give theirs
-//   beside the ring and the bow.
-const AOG_SET = ['lydia_greaves','sword_gideon','shield_ruth','samuel_helm','armor_michael'];   // chapel order
-const GENERAL_AOG = { 5:'lydia_greaves', 8:'samuel_helm' };
-const AOG_BONUS = { def:6, maxHp:10, dmgReduce:0.10 };   // "Stand firm" (Eph 6:13), all five worn
-function gearStatText(e){ if(!e) return '';
-  const p=[]; if(e.slot==='weapon'){ p.push('['+(e.type||'light')+'] +'+(e.atk||0)+' atk'); if(e.crit) p.push('+'+Math.round(e.crit*100)+'% crit'); }
-  else { p.push('+'+(e.def||0)+' def'); if(e.maxHp) p.push('+'+e.maxHp+' hp'); }
-  return p.join(' '); }
-function suitPieces(s){ return Object.keys(EQUIP).filter(id=>EQUIP[id].suit===s); }   // breastplate first (catalog order)
-function grantSuit(s){ suitPieces(s).forEach(id=>{ player.ownedGear[id]=true; }); }
-function aogWorn(){ const q=player.equip||{}; return AOG_SET.filter(id=>GEAR_SLOTS.some(([s])=>q[s]===id)).length; }
-function aogOwned(){ return AOG_SET.filter(id=>player.ownedGear&&player.ownedGear[id]).length; }
-// the best piece you own for a slot (def + half its hp), or null
-function gearBestFor(slot){ let best=null, bv=-1;
-  for(const id in EQUIP){ const e=EQUIP[id]; if(e.slot!==slot || !player.ownedGear[id]) continue; const v=(e.def||0)+(e.maxHp||0)/2; if(v>bv){ bv=v; best=id; } }
-  return best; }
-// Old saves wore one 'armor'. Move it to its own slot, hand over the rest of any suit they owned (the pieces
-// came with it in their day), fill the empty slots with the best they own, and give any Armor of God piece a
-// cleansed late chapel now owes. Safe to run on every load: only the 'armor' key marks an old save.
-function gearMigrate(){
-  if(!player.ownedGear) player.ownedGear={};
-  const q=player.equip||(player.equip={});
-  const old=Object.prototype.hasOwnProperty.call(q,'armor');
-  if(old){ const a=q.armor; delete q.armor;
-    if(a && EQUIP[a] && EQUIP[a].slot!=='weapon') q[EQUIP[a].slot]=a;
-    ['leather','chainmail','platemail','armorofgod'].forEach(s=>{ if(player.ownedGear[s]) grantSuit(s); }); }
-  for(const t in GENERAL_AOG) if(typeof chapelProgress!=='undefined' && chapelProgress[t]) player.ownedGear[GENERAL_AOG[t]]=true;
-  GEAR_SLOTS.forEach(([s])=>{ if(q[s]===undefined) q[s]=null; if(q[s] && (!EQUIP[q[s]] || EQUIP[q[s]].slot!==s)) q[s]=null; });
-  if(!q.weapon) q.weapon=player.ownedGear.rusty?'rusty':'none_w';
-  if(old) GEAR_SLOTS.forEach(([s])=>{ if(s!=='weapon' && (!q[s] || q[s]==='none_a')){ const b=gearBestFor(s); if(b) q[s]=b; } });
-}
-
-// the Gear tab: what you wear, the Armor of God, then everything you own slot by slot
-function gearPaneHtml(rows){
-  const q=player.equip||{}; let h=`<div class="gm-sectitle">Worn</div>`; let atk=0, def=0, hp=0, crit=0;
-  GEAR_SLOTS.forEach(([s,ic,lb])=>{ const e=EQUIP[q[s]];
-    if(e){ atk+=e.atk||0; def+=e.def||0; hp+=e.maxHp||0; crit+=e.crit||0; }
-    // one line per slot that fits a phone: icon + piece on the left, what it adds on the right (the slot's name only when empty)
-    h+=`<div class="gm-stat"><span>${ic} ${e?`<b>${e.name}</b>`:`<span style="opacity:.55">${lb} — none</span>`}</span><span class="ds" style="white-space:nowrap;margin-left:6px">${e?gearStatText(e).replace(/^\[\w+\] /,''):''}</span></div>`; });
-  const full=aogWorn()===AOG_SET.length;
-  if(full){ def+=AOG_BONUS.def; hp+=AOG_BONUS.maxHp; }
-  h+=`<div class="gm-stat" style="background:rgba(255,240,200,.45)"><span>From gear</span><b>+${atk} atk · +${def} def · +${hp} hp${crit?` · +${Math.round(crit*100)}% crit`:''}</b></div>`;
-  const own=aogOwned();
-  if(own>0){
-    h+=`<div class="gm-sectitle">✝ The Armor of God · ${own} / ${AOG_SET.length}${full?' · worn':''}</div><div style="font-size:calc(7.5px*var(--tx,1));line-height:1.6;padding:2px 6px;color:#4a3a1a">`
-      + AOG_SET.map(id=>{ const e=EQUIP[id], has=player.ownedGear[id], on=GEAR_SLOTS.some(([s])=>q[s]===id);
-          return has?`${on?'✓':'·'} ${e.name}${on?'':' <span class="ds">(not worn)</span>'}`:`<span style="opacity:.5">· ? — a later chapel</span>`; }).join('<br>')
-      + `<br><i>All five worn: “Stand firm” — +${AOG_BONUS.def} def, +${AOG_BONUS.maxHp} hp, ${Math.round(AOG_BONUS.dmgReduce*100)}% less damage (Eph 6:13)</i></div>`;
-  }
-  GEAR_SLOTS.forEach(([s,ic,lb])=>{
-    const mine=rows.filter(r=>r.kind==='gear'&&EQUIP[r.id].slot===s); if(!mine.length) return;
-    h+=`<div class="gm-sectitle">${lb}</div>`;
-    mine.forEach(r=>{ const e=EQUIP[r.id], idx=rows.indexOf(r), cur=menu.cursor===idx, eq=q[s]===r.id;
-      h+=`<div class="gm-item ${cur?'cur':''} ${eq?'equipped':''}" data-menurow="${idx}">${e.emoji} <span style="flex:1;pointer-events:none">${e.name}${e.aog?' ✝':''} <span class="ds">${gearStatText(e)}</span></span>${eq?'<span style="color:#2f5434;font-weight:bold;pointer-events:none">worn</span>':''}</div>`; });
-  });
-  if(!rows.length) h+=`<div class="gm-item" style="opacity:.6">— nothing but what you stand in —</div>`;
-  h+=`<div style="font-size:calc(7px*var(--tx,1));color:#665639;margin:8px 4px;line-height:1.7">Ⓐ to wear a piece · Ⓐ on a worn piece takes it off.</div>`;
-  return h;
-}
 
 // ════════════════════════════════════════════════════════════════
 //  PETS — three companion lines, each evolving through 3 forms.
@@ -7298,7 +7195,7 @@ const player = { x:32*TILE, y:24*TILE, dir:'down', moving:false, frame:0, ftick:
   hp:100, maxHp:100, level:1, xp:0, xpNext:20, atk:12, def:0, crit:0.06, weaponType:'light',
   baseMaxHp:100, baseAtk:12, baseDef:0, baseCrit:0.06,   // base values before level/skill/gear
   skillPoints:0, skills:{}, healMult:1, goldMult:1, dmgReduce:0,
-  equip:{ weapon:'rusty', shield:null, helm:null, body:'none_a', legs:null }, ownedGear:{ rusty:true, none_w:true, none_a:true },   // _legacy: equip:{ weapon:'rusty', armor:'none_a' }
+  equip:{ weapon:'rusty', armor:'none_a' }, ownedGear:{ rusty:true, none_w:true, none_a:true },
   name:'Knight', pet:null, mounted:false, petX:0, petY:0,
   swing:0, swingDir:'down', swingType:'light', swingHit:false, dodgeCd:0, dashing:0, dashx:0, dashy:0, iframes:0,
   combo:0, comboT:0, specialFx:0, specialColor:'#fff' };
@@ -7387,7 +7284,7 @@ function buildSaveData(){
     player:{ x:player.x, y:player.y, dir:player.dir, hp:player.hp, level:player.level, xp:player.xp, xpNext:player.xpNext,
       baseMaxHp:player.baseMaxHp, baseAtk:player.baseAtk, baseDef:player.baseDef, baseCrit:player.baseCrit,
       skillPoints:player.skillPoints, skills:player.skills, equip:player.equip, ownedGear:player.ownedGear, weaponType:player.weaponType,
-      name:player.name||'Knight', pet:player.pet||null, surfBest:player.surfBest||0, petGear:player.petGear||{}, barnPets:player.barnPets||[], raceBarding:!!player.raceBarding, petLooksOwned:player.petLooksOwned||{}, boatInv:player.boatInv||null, hasLamp:!!player.hasLamp, championRobe:!!player.championRobe, mountSkin:player.mountSkin||null, mountSkinOwned:player.mountSkinOwned||{}, quickPot:player.quickPot||'potion', reubenMet:!!player.reubenMet },
+      name:player.name||'Knight', pet:player.pet||null, surfBest:player.surfBest||0, petGear:player.petGear||{}, barnPets:player.barnPets||[], raceBarding:!!player.raceBarding, petLooksOwned:player.petLooksOwned||{}, boatInv:player.boatInv||null, hasLamp:!!player.hasLamp, championRobe:!!player.championRobe, mountSkin:player.mountSkin||null, mountSkinOwned:player.mountSkinOwned||{} },
     gold, inventory, quests, tutorial, chapelProgress, crops, secretsFound,
     raceRecordMs: (typeof raceRecordMs==='number'?raceRecordMs:60000),
     raceRecords: (typeof raceRecords==='object'&&raceRecords)?Object.assign({},raceRecords):{},   // 🐎 the steeplechase's record per course (2026-10-07)
@@ -7499,15 +7396,15 @@ function applySaveData(s){
   const p=s.player;
   Object.assign(player, { x:p.x, y:p.y, dir:p.dir||'down', hp:p.hp, level:p.level, xp:p.xp, xpNext:p.xpNext,
     baseMaxHp:p.baseMaxHp, baseAtk:p.baseAtk, baseDef:p.baseDef, baseCrit:p.baseCrit,
-    skillPoints:p.skillPoints, skills:p.skills||{}, equip:p.equip||{weapon:'rusty',body:'none_a'},
-    ownedGear:p.ownedGear||{rusty:true,none_w:true,none_a:true}, weaponType:p.weaponType||'light', name:p.name||'Knight', pet:p.pet||null, surfBest:p.surfBest||0, petGear:p.petGear||{}, barnPets:p.barnPets||[], raceBarding:!!p.raceBarding, petLooksOwned:p.petLooksOwned||{}, boatInv:p.boatInv||null, hasLamp:!!p.hasLamp, championRobe:!!(p.championRobe||p.crossNecklace), mountSkin:p.mountSkin||null, mountSkinOwned:p.mountSkinOwned||{}, quickPot:(p.quickPot||'potion'), reubenMet:!!p.reubenMet });
+    skillPoints:p.skillPoints, skills:p.skills||{}, equip:p.equip||{weapon:'rusty',armor:'none_a'},
+    ownedGear:p.ownedGear||{rusty:true,none_w:true,none_a:true}, weaponType:p.weaponType||'light', name:p.name||'Knight', pet:p.pet||null, surfBest:p.surfBest||0, petGear:p.petGear||{}, barnPets:p.barnPets||[], raceBarding:!!p.raceBarding, petLooksOwned:p.petLooksOwned||{}, boatInv:p.boatInv||null, hasLamp:!!p.hasLamp, championRobe:!!(p.championRobe||p.crossNecklace), mountSkin:p.mountSkin||null, mountSkinOwned:p.mountSkinOwned||{} });
   // ── back-compat: saves from before the Rusty Old Sword existed. Grant it, and
   //    if they're still empty-handed, put it in their hand — atk 0 and the same
   //    special as Bare Fists, so this is a silhouette change and nothing more.
   const _preRusty = !(p.ownedGear && p.ownedGear.rusty);   // save predates the Rusty Old Sword
   if(!player.ownedGear) player.ownedGear={};
   player.ownedGear.rusty=true;
-  if(!player.equip) player.equip={weapon:'rusty',body:'none_a'};
+  if(!player.equip) player.equip={weapon:'rusty',armor:'none_a'};
   // Migrate ONCE, only for saves from before the sword existed. Doing this on every
   // load would make Bare Fists impossible to keep equipped across a save/load.
   if(_preRusty && player.equip.weapon==='none_w') player.equip.weapon='rusty';
@@ -7621,7 +7518,6 @@ function applySaveData(s){
   if(hunt.won) ensureAldric();
   if(hunt.done) ensureMarshals();
   checkPetEvolve();      // a companion that has earned its growth evolves on load
-  gearMigrate();   // 🛡 one armor slot → five; Armor of God pieces a cleansed late chapel owes
   if(player.equip&&player.equip.weapon&&EQUIP[player.equip.weapon]) player.weaponType=EQUIP[player.equip.weapon].type||'light';
   recalcStats();
   place={kind:'overworld'}; demons=[]; spawnDemons();
@@ -7719,7 +7615,7 @@ function _buildMaxSave(){
       baseMaxHp:100, baseAtk:12, baseDef:0, baseCrit:0.06,
       skillPoints:20,                            // spare points after buying everything
       skills:allSkills,
-      equip:{ weapon:'sword_gideon', shield:'shield_ruth', helm:'samuel_helm', body:'armor_michael', legs:'lydia_greaves' },   // _legacy: { weapon:'holyblade', armor:'armorofgod' }
+      equip:{ weapon:'holyblade', armor:'armorofgod' },
       ownedGear, weaponType:'light',
       name:'Paladin', pet:{ id:'grace', form:2 },   // flying Sky Steed
       surfBest:0, petGear:{}, barnPets:[{ id:'unicorn', form:2 }], raceBarding:true, boatInv:null,
@@ -7977,11 +7873,11 @@ function menuRows(){
   //   actually carries: what you can eat, what you can sow, and what you reaped.
   if(menu.tab===TAB.gear){ // gear: weapons, then armor
     const owned=Object.keys(EQUIP).filter(id=>player.ownedGear[id]);
-    // _legacy: weapons then 'armor'. Now slot by slot, in GEAR_SLOTS order.
-    return GEAR_SLOTS.flatMap(([s])=>owned.filter(id=>EQUIP[id].slot===s).map(id=>({kind:'gear', id}))); }
+    return [...owned.filter(id=>EQUIP[id].slot==='weapon').map(id=>({kind:'gear', id})),
+            ...owned.filter(id=>EQUIP[id].slot==='armor').map(id=>({kind:'gear', id}))]; }
   if(menu.tab===TAB.items){ // items: consumables · seed pouch · larder · the catch
-    // _legacy: const use=[]; potion and bread rows only — return use;
-    return potItemRows(); }   // 🧪 the ★ quick slot, every potion carried, then bread   // seeds and produce are read-only tallies, not selectable rows
+    const use=[]; if(inventory.potion>0) use.push({kind:'use', id:'potion'}); if(inventory.bread>0) use.push({kind:'use', id:'bread'});
+    return use; }   // seeds and produce are read-only tallies, not selectable rows
   if(menu.tab===TAB.home){ // home: placeable decorations
     return Object.keys(DECOR_ITEMS).filter(id=>(homesteadDecor.inv[id]||0)>0).map(id=>({kind:'decor', id}));
   }
@@ -8119,7 +8015,7 @@ function renderMenu(){
     html += `</div>`;
   }
   if(menu.tab===TAB.character){ // CHARACTER
-    const w=EQUIP[player.equip.weapon]||EQUIP.none_w;   // _legacy: a=EQUIP[player.equip.armor]
+    const w=EQUIP[player.equip.weapon], a=EQUIP[player.equip.armor];
     html += `<div class="gm-stat"><span>Level</span><b>${player.level}</b></div>`
       + `<div class="gm-stat"><span>XP</span><b>${player.xp} / ${player.xpNext}</b></div>`
       + `<div class="gm-stat"><span>❤ Max HP</span><b>${player.maxHp}</b></div>`
@@ -8132,9 +8028,7 @@ function renderMenu(){
       + `<div class="gm-sectitle">Equipped</div>`
       + `<div class="gm-stat"><span>${w.emoji} Weapon</span><b>${w.name} <span style="font-size:calc(7px*var(--tx,1));color:#8fb">[${w.type}]</span></b></div>`
       + `<div class="gm-stat"><span>✦ Combo Special</span><b style="color:#7a5c28">${groundPoundFor(player.equip&&player.equip.weapon).name}</b></div>`
-      + GEAR_SLOTS.slice(1).map(([s,ic,lb])=>{ const e=EQUIP[player.equip[s]]; return `<div class="gm-stat"><span>${ic} ${lb}</span><b>${e?e.name:'<span style="opacity:.55">— none —</span>'}</b></div>`; }).join('')
-      + (aogWorn()===AOG_SET.length?`<div class="gm-stat"><span>✝ Armor of God</span><b style="color:#7a5c28">Stand firm</b></div>`:'');
-    // _legacy: + `<div class="gm-stat"><span>${a.emoji} Armor</span><b>${a.name}</b></div>`;
+      + `<div class="gm-stat"><span>${a.emoji} Armor</span><b>${a.name}</b></div>`;
   } else if(menu.tab===TAB.skills){ // SKILLS
     html += `<div class="gm-stat"><span>★ Skill Points to spend</span><b style="color:#7a5c28">${player.skillPoints}</b></div>`;
     let ri=0;
@@ -8154,8 +8048,6 @@ function renderMenu(){
     renderTree(SKILL_TREE,'⚔ Knight');
   } else if(menu.tab===TAB.gear){ // GEAR — weapons and armor, lifted out of Items
     const rows=menuRows();
-    html += gearPaneHtml(rows);
-    if(false){   // _legacy (one armor slot): the two lists below, kept for revert
     html += `<div class="gm-sectitle">Weapons</div>`;
     rows.filter(r=>r.kind==='gear'&&EQUIP[r.id].slot==='weapon').forEach(r=>{ const e=EQUIP[r.id]; const idx=rows.indexOf(r); const cur=menu.cursor===idx; const eq=player.equip.weapon===r.id;
       html += `<div class="gm-item ${cur?'cur':''} ${eq?'equipped':''}" data-menurow="${idx}">${e.emoji} <span style="flex:1;pointer-events:none">${e.name} <span class="ds">[${e.type}] +${e.atk} atk${e.crit?` +${Math.round(e.crit*100)}% crit`:''}</span></span>${eq?'<span style="color:#2f5434;font-weight:bold;pointer-events:none">worn</span>':''}</div>`; });
@@ -8163,17 +8055,13 @@ function renderMenu(){
     rows.filter(r=>r.kind==='gear'&&EQUIP[r.id].slot==='armor').forEach(r=>{ const e=EQUIP[r.id]; const idx=rows.indexOf(r); const cur=menu.cursor===idx; const eq=player.equip.armor===r.id;
       html += `<div class="gm-item ${cur?'cur':''} ${eq?'equipped':''}" data-menurow="${idx}">${e.emoji} <span style="flex:1;pointer-events:none">${e.name} <span class="ds">+${e.def||0} def${e.maxHp?` +${e.maxHp} hp`:''}</span></span>${eq?'<span style="color:#2f5434;font-weight:bold;pointer-events:none">worn</span>':''}</div>`; });
     if(!rows.length) html += `<div class="gm-item" style="opacity:.6">— nothing but what you stand in —</div>`;
-    }
   } else if(menu.tab===TAB.items){ // ITEMS — consumables · seed pouch · larder · the catch
     const rows=menuRows();
-    html += potItemsHtml(rows);   // 🧪 potions, the quick slot, active effects, food
-    if(false){   // _legacy: the Consumables list (Healing Potion and bread), kept for revert
     html += `<div class="gm-sectitle">Consumables</div>`;
     if(rows.length){ rows.forEach(r=>{ const idx=rows.indexOf(r); const cur=menu.cursor===idx;
         const em=r.id==='potion'?'🧪':'🍞', nm=r.id==='potion'?'Healing Potion':'Loaf of Bread', hp=r.id==='potion'?40:15;
         html += `<div class="gm-item ${cur?'cur':''}" data-menurow="${idx}">${em} <span style="flex:1;pointer-events:none">${nm} ×${inventory[r.id]} <span class="ds">use: +${hp} HP</span></span></div>`; }); }
     else html += `<div class="gm-item" style="opacity:.6">— none —</div>`;
-    }
     // ── SEED POUCH — what you can still put in the ground ──
     html += `<div class="gm-sectitle">Seed Pouch</div>`;
     const pouch=CROP_ORDER.filter(k=>(inventory[CROPS[k].seed]||0)>0);
@@ -8275,8 +8163,6 @@ function renderMenu(){
   //   Quests is handled by its own `if` above and never joins this chain, so it
   //   fell through here and had the save-profile block stapled onto the bottom
   //   of the quest log. Name the tab instead of relying on position.
-  } else if(menu.tab===TAB.system && menu.sub==='controls'){ // ⌨ SYSTEM › KEYBOARD CONTROLS
-    html += ctlPaneHtml();
   } else if(menu.tab===TAB.system){ // SYSTEM (save profiles)
     const rows=menuRows();
     html += `<div class="gm-stat"><span>Playing</span><b>Slot ${activeSlot} · ${player.name||'Knight'} · Lv ${player.level} · ${Object.keys(chapelProgress).filter(k=>chapelProgress[k]).length}/10</b></div>`;
@@ -8291,7 +8177,6 @@ function renderMenu(){
         label=`${audio.musicOn?'🎵':'🔇'} Music  <span style="letter-spacing:1px;color:${audio.musicOn?'#2f5434':'#665639'}">${volBar(audio.musicVol)}</span>  ${audio.musicOn?Math.round(audio.musicVol*100)+'%':'OFF'}`;
         note='the realm\'s travelling themes — Ⓐ to change'; }
       else if(r.kind==='sys' && r.id==='text'){ label=`🔤 Text Size  <b>${TEXT_SIZES[_textPref][0]}</b>`; note='bigger or smaller words in dialogue and menus — Ⓐ to change'; }
-      else if(r.kind==='sys' && r.id==='controls'){ label='⌨ Keyboard Controls'; note=`see and change every key · 🧪 potion is ${ctlKeysFor('potion')}`; }
       else if(r.kind==='sys' && r.id==='save'){ label='💾 Save Game'; note=`write your progress to Slot ${activeSlot}`; }
       else if(r.kind==='sys' && r.id==='export'){ label='📤 Export Save Code'; note='back up this hero as a code you can keep'; }
       else if(r.kind==='sys' && r.id==='import'){ label='📥 Import Save Code'; note='restore a hero from a code (into this slot)'; }
@@ -8305,7 +8190,7 @@ function renderMenu(){
       html += `<div class="gm-node ${cur?'cur':''}" data-menurow="${idx}"><span class="nm" style="pointer-events:none">${label} <span class="ds">${note}</span></span></div>`; });
     html += `<div style="font-size:calc(7px*var(--tx,1));color:#665639;margin:8px 4px;line-height:1.8">Profiles live in this browser on this device. <b style="color:#5c3f7a">On phones, saves can be wiped when you reopen a downloaded file</b> — if progress isn't sticking, use <b>📤 Export Save Code</b> to back up, and <b>📥 Import</b> to restore (works across devices too). Auto-saves to the active slot on entering/leaving towns.</div>`;
   }
-  const actLbl = menu.tab===TAB.gear?'wear / take off':menu.tab===TAB.skills?'buy skill':menu.tab===TAB.items?'use / equip':menu.tab===TAB.pet?'buy skill':menu.tab===TAB.system?'select':menu.tab===TAB.home?'place':'—';
+  const actLbl = menu.tab===TAB.skills?'buy skill':menu.tab===TAB.items?'use / equip':menu.tab===TAB.pet?'buy skill':menu.tab===TAB.system?'select':menu.tab===TAB.home?'place':'—';
   // the hint names only the keys that do something RIGHT NOW — which half of
   // the screen the d-pad drives depends on where focus sits.
   html += `</div></div><div class="gm-hint">`
@@ -8390,12 +8275,7 @@ function menuSelect(){ if(!menu.open) return;
     else { inventory[row.id]--; player.hp=Math.min(player.maxHp, player.hp+heal); sfxPotion();
       showBanner(`${em} +${heal} HP! (${Math.round(player.hp)}/${player.maxHp})`, 1300); }
   }
-  // _legacy: else if(row.kind==='gear'){ equipItem(row.id); showBanner(`Equipped ${EQUIP[row.id].name}.`, 1000); }
-  else if(row.kind==='gear'){ const e=EQUIP[row.id];
-    if(player.equip[e.slot]===row.id){            // Ⓐ on what you wear takes it off (a weapon goes back to bare fists)
-      if(e.slot==='weapon'){ if(row.id!=='none_w'){ equipItem('none_w'); showBanner(`You set down the ${e.name}.`, 1000); } }
-      else { player.equip[e.slot]=null; recalcStats(); showBanner(`Took off the ${e.name}.`, 1000); } }
-    else { equipItem(row.id); showBanner(`${e.emoji} Wearing ${e.name}.`+(e.aog&&aogWorn()===AOG_SET.length?'<br><b style="color:#ffe04a">✝ The whole Armor of God — stand firm!</b>':''), e.aog&&aogWorn()===AOG_SET.length?2200:1000); } }
+  else if(row.kind==='gear'){ equipItem(row.id); showBanner(`Equipped ${EQUIP[row.id].name}.`, 1000); }
   else if(row.kind==='sys'){
     if(row.id==='sfx'||row.id==='music'){
       stepVol(row.id==='sfx' ? 'sfx' : 'music');
@@ -8436,10 +8316,8 @@ function recalcStats(){
     if(b.healMult)healMult+=b.healMult; if(b.goldMult)goldMult+=b.goldMult; if(b.dmgReduce)dmgReduce+=b.dmgReduce;
     if(b.petBonus)petBonus+=b.petBonus; }
   // equipment (added in inventory step)
-  // _legacy: const w=EQUIP[player.equip.weapon], a=EQUIP[player.equip.armor]; w → atk/crit, a → def/maxHp
-  if(player.equip){ for(const [s] of GEAR_SLOTS){ const e=EQUIP[player.equip[s]]; if(!e) continue;
-      atk+=e.atk||0; if(e.crit)crit+=e.crit; def+=e.def||0; if(e.maxHp)maxHp+=e.maxHp; }
-    if(aogWorn()===AOG_SET.length){ def+=AOG_BONUS.def; maxHp+=AOG_BONUS.maxHp; dmgReduce+=AOG_BONUS.dmgReduce; } }
+  if(player.equip){ const w=EQUIP[player.equip.weapon], a=EQUIP[player.equip.armor];
+    if(w){ atk+=w.atk||0; if(w.crit)crit+=w.crit; } if(a){ def+=a.def||0; if(a.maxHp)maxHp+=a.maxHp; } }
   // pet companion bonus (scales with its evolution form) + Bond-tree petBonus boost
   if(player.pet){ const f=PETS[player.pet.id].forms[player.pet.form]; const b=f.bonus||{};
     if(b.atk)atk+=b.atk; if(b.def)def+=b.def; if(b.maxHp)maxHp+=b.maxHp; if(b.crit)crit+=b.crit;
@@ -8510,7 +8388,7 @@ const DECOR_ITEMS = {   // kind → drawDecor case · w → footprint tiles · a
   sapling:  {name:'Apple Sapling',  emoji:'🌳', kind:'sapling',     w:1},
   champion_cross:{name:"Champion's Cross", emoji:'✝️', kind:'crossSword', w:1},
 };
-const BOUNTY_GEAR_POOL = ['ironsword','warhammer','chainmail','greatsword','platemail','holyblade','chain_coif','chain_legs','kite','plate_helm','plate_legs','tower'];
+const BOUNTY_GEAR_POOL = ['ironsword','warhammer','chainmail','greatsword','platemail','holyblade'];
 const BOUNTY_TITLES = {
   demons: ['Purge the Wilds','The Roads Made Straight','A Watchman\u2019s Plea','Light Against the Dark'],
   tourney:['Glory of the Lists','A Champion\u2019s Proof','Honor of the Keeps'],
@@ -11365,7 +11243,6 @@ function npcTileBlocked(tx,ty){
     }
     if(rgBlocks(tx,ty)) return true;   // Dylan sitting, Cody's horse
     if(tradeBlocks(tx,ty)) return true;   // the trade board, parked carts
-    if(reubenBlocks(tx,ty)) return true;   // 🍶 Reuben and his wagon
     // doodles are bumpable too, so you can stop one to talk (push-through still
     // lets you past, so a doodle in a one-tile gap never seals anything)
     for(const d of doodles){
@@ -14139,171 +14016,7 @@ function bossBar(key,x,y,w,h,hp,max){ max=Math.max(1,max); hp=Math.max(0,Math.mi
   }
 })();
 
-// ════════════════════════════════════════════════════════════════
-//  ⌨ CONTROLS — the keyboard, mapped and remappable (2026-10-09-ct)
-// ════════════════════════════════════════════════════════════════
-// Zak: "My PC players noticed that there's no button for potions they could find.
-//   I think for PC we should add a controls map where they can actually choose and
-//   adjust their controls." The potion key (H/Q) was always there; nothing said so.
-// ☰ System → ⌨ Keyboard Controls lists every action with two keys each. Ⓐ on a key,
-// then press the new one. Saved per computer (localStorage 'klk_controls'), never in
-// the save file, so a hero moved to a phone doesn't carry a keyboard with it.
-// HOW: every keydown/keyup listener calls ctlKey(e) first. While the bindings are the
-// defaults it changes nothing at all (the hidden old keys Z, X, Enter, Esc still work).
-// Once a player changes a key, the key they pressed is rewritten to the action's
-// canonical key (the one the handlers already test for), and any old game key they did
-// not keep is silenced. Enter and Esc are fixed: they always confirm and close.
-var CTL_ACTIONS = [
-  { id:'up',    label:'▲ Up',                          canon:'w', def:['w','arrowup'],    grp:'Move' },
-  { id:'down',  label:'▼ Down',                        canon:'s', def:['s','arrowdown'],  grp:'Move' },
-  { id:'left',  label:'◀ Left',                        canon:'a', def:['a','arrowleft'],  grp:'Move' },
-  { id:'right', label:'▶ Right',                       canon:'d', def:['d','arrowright'], grp:'Move' },
-  { id:'act',   label:'Ⓐ Talk · open · strike',        canon:'j', def:['j','space'],      grp:'Act' },
-  { id:'guard', label:'Ⓑ Guard (hold) · dodge (tap twice)', canon:'k', def:['k','shift'], grp:'Act' },
-  { id:'potion',label:'🧪 Drink quick potion',          canon:'h', def:['h','q'],          grp:'Act' },
-  { id:'nextpot',label:'🔄 Next potion on the quick slot', canon:'r', def:['r',null],        grp:'Act' },
-  { id:'menu',  label:'☰ Menu',                         canon:'m', def:['m',null],         grp:'Menus' },
-  { id:'surface',label:'🌊 Surface (underwater)',       canon:'u', def:['u',null],         grp:'Menus' },
-];
-// every key the handlers listen for as a game key — silenced in custom mode unless bound
-var CTL_GAMEKEYS = ['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','j','z','k','x','space','shift','h','q','m','u','r'];
-var CTL_FIXED = { enter:1, escape:1, tab:1 };
-var ctl = { binds:null, hinted:false, listen:null, col:0, msg:'' };
-function ctlDefaults(){ const b={}; CTL_ACTIONS.forEach(a=>{ b[a.id]=a.def.slice(); }); return b; }
-function ctlNorm(k){ if(k==null) return ''; if(k===' ') return 'space'; return String(k).toLowerCase(); }
-function ctlLoad(){
-  ctl.binds=ctlDefaults();
-  try{ const s=JSON.parse(localStorage.getItem('klk_controls')||'null');
-    if(s && s.binds) CTL_ACTIONS.forEach(a=>{ const v=s.binds[a.id]; if(Array.isArray(v) && v.length===2) ctl.binds[a.id]=[v[0]||null, v[1]||null]; });
-    if(s && s.hinted) ctl.hinted=true; }catch(e){}
-}
-function ctlSave(){ try{ localStorage.setItem('klk_controls', JSON.stringify({ v:1, binds:ctl.binds, hinted:ctl.hinted })); }catch(e){} }
-function ctlCustom(){ const d=ctlDefaults(); return CTL_ACTIONS.some(a=>ctl.binds[a.id][0]!==d[a.id][0] || ctl.binds[a.id][1]!==d[a.id][1]); }
-function ctlActionOf(k){ for(const a of CTL_ACTIONS){ const b=ctl.binds[a.id]; if(b[0]===k||b[1]===k) return a; } return null; }
-function ctlKeyName(k){
-  if(!k) return '—';
-  const N={ arrowup:'↑', arrowdown:'↓', arrowleft:'←', arrowright:'→', space:'Space', shift:'Shift', control:'Ctrl', alt:'Alt',
-            meta:'⌘', backspace:'⌫', capslock:'Caps', contextmenu:'Menu', pageup:'PgUp', pagedown:'PgDn', insert:'Ins', home:'Home', end:'End' };
-  return N[k] || (k.length===1 ? k.toUpperCase() : k.charAt(0).toUpperCase()+k.slice(1));
-}
-// the keys bound to an action, for hints elsewhere ("H / Q")
-function ctlKeysFor(id){ const b=(ctl.binds||ctlDefaults())[id]||[]; return b.filter(Boolean).map(ctlKeyName).join(' / ') || '—'; }
-function ctlSetKey(e,k){ try{ Object.defineProperty(e,'key',{ value:k, configurable:true }); }catch(_){ try{ e.key=k; }catch(__){} } }
-// called first by every keydown/keyup listener; returns true when the key was used up here
-function ctlKey(e){
-  if(!e || e.__ctl) return !!(e && e.__ctlEat);
-  e.__ctl=true;
-  if(!ctl.binds) ctlLoad();
-  const tg=e.target, tag=tg && tg.tagName ? String(tg.tagName).toUpperCase() : '';
-  if(tag==='INPUT' || tag==='TEXTAREA') return false;                       // typing a name or a save code
-  if((typeof saveio!=='undefined' && saveio.open) || (typeof petName!=='undefined' && petName.open)) return false;
-  const k=ctlNorm(e.key);
-  // ── waiting for a new key on the Controls screen ──
-  if(ctl.listen && e.type!=='keyup'){
-    if(e.preventDefault) e.preventDefault();
-    e.__ctlEat=true; ctlSetKey(e,'Unidentified');
-    const L=ctl.listen; ctl.listen=null;
-    if(k==='escape'){ ctl.msg='Left as it was.'; }
-    else if(k==='backspace'||k==='delete'){ ctl.binds[L.act][L.slot]=null; ctl.msg='Key cleared.'; ctlSave(); }
-    else if(CTL_FIXED[k]){ ctl.msg='Enter, Esc and Tab are fixed — they always confirm and close.'; }
-    else {
-      let moved='';
-      CTL_ACTIONS.forEach(a=>{ const b=ctl.binds[a.id]; for(let i=0;i<2;i++) if(b[i]===k && !(a.id===L.act && i===L.slot)){ b[i]=null; moved=a.label; } });
-      ctl.binds[L.act][L.slot]=k; ctlSave();
-      const me=CTL_ACTIONS.find(a=>a.id===L.act);
-      ctl.msg = ctlKeyName(k)+' → '+me.label + (moved ? ' (taken from '+moved+')' : '');
-    }
-    if(typeof renderMenu==='function' && menu.open) renderMenu();
-    return true;
-  }
-  if(e.type==='keyup' && e.__ctlEat) return true;
-  // ── first keyboard press in the field: say where the keys are, once ──
-  if(!ctl.hinted && e.type==='keydown' && typeof boot!=='undefined' && boot.done && !menu.open && !(dialogue&&dialogue.open)){
-    ctl.hinted=true; ctlSave();
-    setTimeout(()=>{ try{ showBanner('⌨ <b>Playing on a keyboard?</b><br><span style="font-size:calc(7px*var(--tx,1))">🧪 potion: <b>'+ctlKeysFor('potion')+'</b> · ☰ menu: <b>'+ctlKeysFor('menu')+'</b><br>Every key, and changing them: ☰ → System → ⌨ Keyboard Controls</span>', 4200); }catch(_){} }, 600);
-  }
-  if(!ctlCustom()) return false;                                            // defaults: the old handlers, untouched
-  if(CTL_FIXED[k]) return false;
-  const a=ctlActionOf(k);
-  if(a){ ctlSetKey(e, a.canon); return false; }
-  if(CTL_GAMEKEYS.indexOf(k)>=0){ ctlSetKey(e,'Unidentified'); }          // an old key the player gave away
-  return false;
-}
-// ── the Controls screen, inside ☰ System ──
-function ctlRows(){ const r=CTL_ACTIONS.map(a=>({ kind:'ctl', id:a.id })); r.push({ kind:'ctlreset', id:'reset' }); r.push({ kind:'ctlback', id:'back' }); return r; }
-function ctlPaneHtml(){
-  if(!ctl.binds) ctlLoad();
-  const keyBox=(txt,on,sel)=>`<span style="display:inline-block;min-width:30px;text-align:center;padding:1px 5px;margin-left:4px;border:1px solid ${on?'#3f6b44':(sel?'#7a5c28':'#8a7450')};border-radius:3px;background:${on?'#cfe0c0':(sel?'#f8e8b8':'#f4ead0')};font-weight:bold;pointer-events:none">${txt}</span>`;
-  let h=`<div class="gm-sectitle">⌨ Keyboard Controls</div>`
-    + `<div style="font-size:calc(7.5px*var(--tx,1));color:#4a3a1a;padding:2px 6px 4px;line-height:1.5">Two keys for each action. ◀▶ picks the left or right key, Ⓐ then press the new key (⌫ clears it, Esc keeps it). Saved on this computer. <b>Enter</b> and <b>Esc</b> always confirm and close.</div>`;
-  if(ctl.msg) h+=`<div style="font-size:calc(7.5px*var(--tx,1));color:#2f5434;font-weight:bold;padding:2px 6px 4px">${ctl.msg}</div>`;
-  let grp='', idx=0;
-  CTL_ACTIONS.forEach(a=>{
-    if(a.grp!==grp){ grp=a.grp; h+=`<div class="gm-sectitle">${grp}</div>`; }
-    const cur=menu.cursor===idx, b=ctl.binds[a.id];
-    const lis=ctl.listen && ctl.listen.act===a.id;
-    const box=i=> keyBox(lis&&ctl.listen.slot===i?'press a key…':ctlKeyName(b[i]), lis&&ctl.listen.slot===i, cur&&ctl.col===i&&!lis);
-    h+=`<div class="gm-item ${cur?'cur':''}" data-menurow="${idx}"><span style="flex:1;pointer-events:none">${a.label}</span>${box(0)}${box(1)}</div>`;
-    idx++;
-  });
-  h+=`<div class="gm-sectitle">&nbsp;</div>`;
-  h+=`<div class="gm-item ${menu.cursor===idx?'cur':''}" data-menurow="${idx}">↺ <span style="flex:1;pointer-events:none">Reset to defaults</span></div>`; idx++;
-  h+=`<div class="gm-item ${menu.cursor===idx?'cur':''}" data-menurow="${idx}">↩ <span style="flex:1;pointer-events:none">Back to System</span></div>`;
-  h+=`<div style="font-size:calc(7px*var(--tx,1));color:#665639;margin:8px 4px;line-height:1.7">A key already in use moves over to the action you give it, and this screen says which. Touch controls are not changed.</div>`;
-  return h;
-}
-(function ctlInstall(){
-  ctlLoad();
-  const _rows=menuRows;
-  menuRows=function(){
-    if(menu.open && menu.tab===TAB.system && menu.sub==='controls') return ctlRows();
-    const r=_rows.apply(this, arguments);
-    if(menu.tab===TAB.system){ const i=r.findIndex(x=>x.kind==='sys'&&x.id==='text'); if(i>=0 && !r.some(x=>x.id==='controls')) r.splice(i+1,0,{ kind:'sys', id:'controls' }); }
-    return r;
-  };
-  const _render=renderMenu;
-  renderMenu=function(){
-    const r=_render.apply(this, arguments);   // the System branch paints ctlPaneHtml() itself while menu.sub==='controls'
-    if(menu.open && menu.tab===TAB.system && menu.sub==='controls'){
-      const hint=gmEl().querySelector && gmEl().querySelector('.gm-hint'); if(hint) hint.innerHTML='▲▼ action · ◀▶ key · Ⓐ change · Ⓑ back';
-    }
-    return r;
-  };
-  const _select=menuSelect;
-  menuSelect=function(){
-    if(menu.open && menu.tab===TAB.system && menu.sub==='controls' && menu.focus==='list'){
-      const row=ctlRows()[menu.cursor]; if(!row) return;
-      if(row.kind==='ctl'){ ctl.listen={ act:row.id, slot:ctl.col }; ctl.msg=''; }
-      else if(row.kind==='ctlreset'){ ctl.binds=ctlDefaults(); ctlSave(); ctl.msg='Every key is back to its default.'; }
-      else { ctlLeave(); }
-      if(typeof sfxMenu==='function') sfxMenu(true);
-      renderMenu(); return;
-    }
-    const rows=menuRows(), row=rows[menu.cursor];
-    if(menu.open && menu.focus==='list' && row && row.kind==='sys' && row.id==='controls'){
-      menu.sub='controls'; menu.cursor=0; ctl.col=0; ctl.msg=''; ctl.listen=null;
-      if(typeof sfxMenu==='function') sfxMenu(true);
-      renderMenu(); return;
-    }
-    return _select.apply(this, arguments);
-  };
-  const _move=menuMove;
-  menuMove=function(dx,dy){
-    if(menu.open && menu.sub==='controls' && menu.focus==='list' && dx!==0){ ctl.col=ctl.col?0:1; ctl.listen=null; renderMenu(); return; }
-    return _move.apply(this, arguments);
-  };
-  const _tab=setMenuTab;
-  setMenuTab=function(){ menu.sub=null; ctl.listen=null; return _tab.apply(this, arguments); };
-  const _back=menuBackToRail;
-  menuBackToRail=function(){ if(menu.sub==='controls'){ ctlLeave(); renderMenu(); return true; } return _back.apply(this, arguments); };
-  const _toggle=toggleMenu;
-  toggleMenu=function(){ if(menu.open && menu.sub==='controls'){ ctlLeave(); renderMenu(); return; } menu.sub=null; return _toggle.apply(this, arguments); };
-})();
-function ctlLeave(){ menu.sub=null; ctl.listen=null; ctl.msg='';
-  const r=menuRows(); const i=r.findIndex(x=>x.kind==='sys'&&x.id==='controls'); menu.cursor=Math.max(0,i); menu.focus='list'; }
-
-addEventListener('keydown', e=>{ if(ctlKey(e)) return;   // ⌨ remapped keys arrive here as the keys the handlers expect
-  const lk=e.key.toLowerCase();
+addEventListener('keydown', e=>{ const lk=e.key.toLowerCase();
   if(!boot.done){ bootKey(e); return; }   // boot sequence owns the keyboard
   if(saveio.open){ if(e.key==='Escape') closeSaveIo(); return; }   // let the textarea type freely
   // The companion-naming box owns the keyboard the same way. Without this, every
@@ -14417,7 +14130,6 @@ addEventListener('keydown', e=>{ if(ctlKey(e)) return;   // ⌨ remapped keys ar
   }
   if(lk==='m'){ e.preventDefault(); toggleMenu(); return; }
   if(lk==='h'||lk==='q'){ e.preventDefault(); quickPotion(); return; }
-  if(lk==='r'){ e.preventDefault(); potCycle(); return; }   // 🧪 next potion on the quick slot (PC)
   if(place.kind==='tourney'){ const kt=keymap[lk];
     if(kt){ tourneyHold(kt.toUpperCase(), true); e.preventDefault(); } }
   const k=keymap[lk]; if(k){held[k]=true;e.preventDefault();}
@@ -14448,7 +14160,7 @@ addEventListener('keydown', e=>{ if(ctlKey(e)) return;   // ⌨ remapped keys ar
     else doAttack(); }
   else if(lk==='k'||lk==='x'||e.key==='Shift'){ if(!e.repeat) bDown(); }  // B: hold=block · double-tap=dodge
 });
-addEventListener('keyup', e=>{ if(ctlKey(e)) return;
+addEventListener('keyup', e=>{
   if(place.kind==='tourney'){ const kt=keymap[e.key.toLowerCase()];
     if(kt) tourneyHold(kt.toUpperCase(), false); }
   const k=keymap[e.key.toLowerCase()]; if(k){held[k]=false;e.preventDefault();}
@@ -16222,10 +15934,7 @@ const LIBRARY_WARES = {
   3:['greatsword','platemail'], 4:['holyblade','platemail'], 5:['holyblade','platemail'],
   6:['holyblade','armorofgod'], 7:['armorofgod'], 8:['armorofgod'], 9:['greatsword','platemail','holyblade','armorofgod'],
 };
-const LIBRARY_PRICE = { ironsword:80, leather:35, warhammer:110, chainmail:120, greatsword:200, platemail:260, holyblade:400, armorofgod:600,
-  leather_cap:15, leather_legs:15, buckler:15, chain_coif:45, chain_legs:45, kite:50,
-  plate_helm:90, plate_legs:110, tower:100, pal_helm:200, pal_legs:240, pal_shield:220 };
-for(const t in LIBRARY_WARES) LIBRARY_WARES[t]=LIBRARY_WARES[t].flatMap(id=>(EQUIP[id]&&EQUIP[id].suit===id)?suitPieces(id):[id]);   // 🛡 a suit is sold as its pieces
+const LIBRARY_PRICE = { ironsword:80, leather:35, warhammer:110, chainmail:120, greatsword:200, platemail:260, holyblade:400, armorofgod:600 };
 function openLibraryShop(townId){
   // build a shop menu of this library's progression wares (only ones not yet owned)
   const wares=(LIBRARY_WARES[townId]||[]).filter(id=>!player.ownedGear[id]);
@@ -17447,8 +17156,7 @@ function dungeonChestReward(){
   if(r<0.8){ inventory.potion=(inventory.potion||0)+2; return '📦 Chest: <b>2 Healing Potions! 🧪</b>'; }
   // occasional gear find scaled to depth
   const gearByTown=['shortsword','leather','ironsword','warhammer','chainmail','greatsword','platemail','holyblade','armorofgod','armorofgod'];
-  const g0=gearByTown[td_id()], g=(g0&&EQUIP[g0].suit===g0)?(suitPieces(g0).find(id=>!player.ownedGear[id])||g0):g0;   // 🛡 a suit is found a piece at a time
-  if(g && !player.ownedGear[g]){ player.ownedGear[g]=true; return `📦 Chest: <b>${EQUIP[g].emoji} ${EQUIP[g].name}!</b><br><span style="font-size:calc(7px*var(--tx,1))">Equip it in the ☰ menu.</span>`; }
+  const g=gearByTown[td_id()]; if(g && !player.ownedGear[g]){ player.ownedGear[g]=true; return `📦 Chest: <b>${EQUIP[g].emoji} ${EQUIP[g].name}!</b><br><span style="font-size:calc(7px*var(--tx,1))">Equip it in the ☰ menu.</span>`; }
   const gold2=30+td.lvl*5; gold+=Math.round(gold2*player.goldMult); return `📦 Chest: <b>${Math.round(gold2*player.goldMult)} gold!</b>`;
 }
 function td_id(){ return dungeon.townId; }
@@ -18100,7 +17808,6 @@ function grantGeneralReward(townId){
   const td=TOWN_DATA[townId]; const rwId=GENERAL_REWARD[townId];
   chapelProgress[townId]=true;
   player.ownedGear[rwId]=true; player.skillPoints+=2; player.hp=player.maxHp;
-  const aogX=GENERAL_AOG[townId]; if(aogX) player.ownedGear[aogX]=true;   // ✝ Lydia and Samuel give a piece beside the ring and the bow
   // ── THE ARMOUR OF GOD SHOWS ITSELF ONCE ── Michael's gift puts itself on the
   // moment it is given, so the player sees what it is. After that the Home tab
   // owns the decision and nothing overrides it again — including this.
@@ -18109,7 +17816,7 @@ function grantGeneralReward(townId){
   }
   const rw=EQUIP[rwId];
   const nextTown = TOWN_DATA[dungeon.townId+1];
-  showBanner(`🙏 <b style="color:#ffe04a">${td.general} blesses you!</b><br><span style="font-size:calc(7px*var(--tx,1))">${td.name} is cleansed. 📖 ${td.div} restored.<br>Received <b>${rw.emoji} ${rw.name}</b>${aogX?` and <b>${EQUIP[aogX].emoji} ${EQUIP[aogX].name}</b>`:''} — equip it in ☰.${(rw.aog||aogX)?`<br>✝ The Armor of God: <b>${aogOwned()}/5</b>`:''}<br>+2 skill points · fully healed!${nextTown?`<br><b style="color:#c06aff">💥 The dark dome over ${nextTown.name} shatters!</b>`:''}</span>`, 5800);
+  showBanner(`🙏 <b style="color:#ffe04a">${td.general} blesses you!</b><br><span style="font-size:calc(7px*var(--tx,1))">${td.name} is cleansed. 📖 ${td.div} restored.<br>Received <b>${rw.emoji} ${rw.name}</b> — equip it in ☰.<br>+2 skill points · fully healed!${nextTown?`<br><b style="color:#c06aff">💥 The dark dome over ${nextTown.name} shatters!</b>`:''}</span>`, 5800);
   saveGame();   // auto-save after cleansing a town
 }
 // How long the stairs ignore you after you step off them. Long enough that a
@@ -19529,7 +19236,6 @@ function doAction(quiet){
     // interior folk have a `look` too — the patron, the guest, the hooded
     // figure. Same rule: the face must match the sprite you tapped.
     dialogue._pid = npc.look ? ('n:'+npc.look) : null;
-    if(npc.name==='Patron' && reubenUnlocked()){ const rr=reubenRumor(); if(rr){ sayAs(npc.name, rr.concat(storyLines(npc.lines))); return true; } }   // 🍶 where Reuben is camped
     sayAs(npc.name, storyLines(npc.lines)); return true;
   }
   // talk to a facing overworld villager
@@ -19601,7 +19307,6 @@ function doAction(quiet){
   }
   // ── 🛒 WAGON: face the parked wagon at the bay to load cargo / hitch up ──
   if(tradeAction(fx,fy)) return true;   // 🏪 the Homestead board, or a parked donkey cart
-  if(place.kind==='overworld' && reubenAction(fx,fy)) return true;   // 🍶 Reuben's wagon
   if(place.kind==='overworld' && wagonAtBay(fx,fy)){ openWagonMenu(); return true; }
   // ── HOMESTEAD DECOR: press A facing a placed piece to pick it back up ──
   if(place.kind==='overworld' && inHomestead(fx,fy)){
@@ -20036,7 +19741,7 @@ function discoverSecret(s){
   secretsFound[s.id]=true;
   const r=s.reward;
   if(r.kind==='gold'){ gold += Math.round(r.amount*player.goldMult); }
-  else if(r.kind==='gear'){ if(EQUIP[r.id]&&EQUIP[r.id].suit===r.id) grantSuit(r.id); else if(!player.ownedGear[r.id]) player.ownedGear[r.id]=true; }   // 🛡 a buried suit is the whole suit
+  else if(r.kind==='gear'){ if(!player.ownedGear[r.id]) player.ownedGear[r.id]=true; }
   showBanner(`✨ <b style="color:#ffe04a">SECRET DISCOVERED!</b><br><span style="font-size:calc(7px*var(--tx,1))">${r.text}${r.kind==='gear'?'<br>Equip it in the ☰ menu.':''}</span>`, 4000);
   saveGame();
 }
@@ -20083,7 +19788,7 @@ function showShop(msg){
   const list=shopMode.items.map((k,i)=>{ const s=shopItem(k); const sel=i===shopMode.idx; 
     return `<span data-shopidx="${i}" style="color:${sel?'#ffe04a':'#9a8ab8'};display:inline-block;padding:1px 0">${sel?'▶ ':'　'}${s.emoji} ${s.name} — ${s.price}g</span>`; }).join('<br>');
   banner.innerHTML = `<span data-shopclose="1" style="position:absolute;top:1px;right:7px;color:#ff8a8a;font-size:calc(10px*var(--tx,1));padding:3px 5px;cursor:pointer">✕</span>`+
-    `<b style="color:#fff">${shopMode&&shopMode.reuben?'🍶 Reuben\u2019s Wagon':'🏪 Shop'}</b> <span style="font-size:calc(7px*var(--tx,1));color:#ffe04a">(you have ${gold}g)</span><br>`+
+    `<b style="color:#fff">🏪 Shop</b> <span style="font-size:calc(7px*var(--tx,1));color:#ffe04a">(you have ${gold}g)</span><br>`+
     `<span style="font-size:calc(7px*var(--tx,1))">${list}</span><br>`+
     `<span style="font-size:calc(6px*var(--tx,1));color:#8a7aaa">${it.note} · tap an item, tap again to buy · ✕ or walk away to leave</span>`+
     (msg?`<br><span style="font-size:calc(7px*var(--tx,1));color:#7ad07a">${msg}</span>`:'');
@@ -20362,7 +20067,6 @@ function loop(ts){
   if(_stairGrace>0) _stairGrace=Math.max(0,_stairGrace-dt);   // see STAIR_GRACE_MS
   tickCross(dt);
   escortStep(dt);
-  potTick(dt);   // 🧪 tonics and Murky Flask effects run down
   // THE WORLD HOLDS STILL while a conversation is on screen, so you cannot be
   // killed while reading. The guard sits on the frame rather than in any one
   // place.kind branch: there are three separate demon updaters and a conversation
@@ -20503,8 +20207,7 @@ function loop(ts){
       const dtx=Math.floor((player.x+TILE/2)/TILE), dty=Math.floor((player.y+TILE/2)/TILE);
       const on=tileAt(dtx,dty); spd = (on===2||on===10||on===11||on===12) ? SPEED*1.5 : SPEED*0.85;
     }
-    if(player.blocking) spd*=0.6;
-    spd*=potSpeedMult();                                 // 🧪 Swiftfoot Brew, or a sluggish Murky Flask                        // braced behind the shield (still mobile)
+    if(player.blocking) spd*=0.6;                        // braced behind the shield (still mobile)
     // Crystalpeak: the cold in your legs. Scales in past FROST_SLOW_AT rather
     // than snapping on, so the player feels it coming and can still reach a fire.
     if(place.kind==='dungeon' && dungeon.townId===5 && (player.frost||0)>FROST_SLOW_AT){
@@ -21855,7 +21558,6 @@ function draw(){
     villagers.forEach(v=>objs.push({ sy:(v.y/TILE)+1, draw:()=>drawVillager(Math.round(v.x-camX), Math.round(v.y-camY), v) }));
     rgDrawObjs(objs,camX,camY);   // Dylan, Ethan, Ranger Cody, and the floating cell
     tradeDrawObjs(objs,camX,camY);   // 🏪 the Homestead board and every parked donkey cart
-    reubenDrawObjs(objs,camX,camY);  // 🍶 Reuben, camped by a cleansed village
     doodles.forEach(d=>objs.push({ sy:(d.y/TILE)+1, draw:()=>drawDoodle(Math.round(d.x-camX), Math.round(d.y-camY), d) }));
     if(player.pet && !player.mounted) objs.push({ sy:(player.petY/TILE)+0.9, draw:()=>drawPet(Math.round(player.petX-camX), Math.round(player.petY-camY)) });
     demons.forEach(d=>{ if(d.alive||d.dying>0||d.pop) objs.push({ sy:(d.y/TILE)+1, draw:()=>drawDemon(Math.round(d.x-camX), Math.round(d.y-camY), d) }); });
@@ -34687,7 +34389,6 @@ function drawKnightBody(x,y,dir,f,bob,mb,swinging,wpnId){
         PAUL=L.HELM; PAUL_HI=L.HELM_HI; PAUL_D=L.HELM_D; }
     }
   }
-  if(typeof potFxOn==='function' && potFxOn('rainbow') && !beastForm()){ const rb=potRainbow(); PLUME=rb[0]; PLUME_HI=rb[1]; PLUME_D=rb[2]; }   // 🌈 a Murky Flask
   // ── THE ARMOUR OF GOD, WORN ── Michael's gift is the only EQUIPMENT in the
   // game that changes how the knight looks. It is applied AFTER the livery block
   // and overrides it wholesale: gold plate, white cape and plume, a gold-and-
@@ -38885,279 +38586,7 @@ bootLogo.src=BOOT_LOGO_SRC;
 const boot = { done:false, phase:'logo', t:0, cursor:0, fade:0, fin:0, fading:null, slashed:false, confirmed:false };
 const BOOT_W=240, BOOT_H=160;
 // Bumped on every export. Shown on the title screen so a cached copy is obvious.
-// ════════════════════════════════════════════════════════════════
-//  🧪 POTIONS, TONICS, AND REUBEN'S WAGON (2026-10-09-pr)
-// ════════════════════════════════════════════════════════════════
-// Zak: "Add different kinds of potions, good potions, suspicious potions, temporary Stat boosters,
-//   etc. these would be sold by a wandering merchant named Reuben." On the suspicious ones: "Mostly
-//   good, but some levels of bad, and some funny effects." Quick potion: "For phone, maybe keep it the
-//   same, one potion selected on the quick select but can apply from menu. For PC you can add the Cycle
-//   Key and Drink key options." Reuben "moves between towns", from "after the first chapel".
-// Reuben is Jacob's firstborn, "unstable as water" (Gen 49:4) — a fine name for a seller of murky brews.
-const POTIONS = {
-  potion:        { name:'Healing Potion',      emoji:'🧪', heal:40,   note:'+40 HP' },
-  greaterPotion: { name:'Greater Healing',     emoji:'💖', heal:100,  note:'+100 HP' },
-  elixir:        { name:'Elixir of Renewal',   emoji:'🌟', heal:9999, cure:true, note:'full HP · clears every ill effect' },
-  mightTonic:    { name:'Draught of Might',    emoji:'💪', fx:'might', ms:90000, note:'+25% attack · 90s' },
-  ironTonic:     { name:'Ironbark Tonic',      emoji:'🌲', fx:'iron',  ms:90000, note:'+25% defense · 90s' },
-  swiftBrew:     { name:'Swiftfoot Brew',      emoji:'💨', fx:'swift', ms:60000, note:'faster on foot · 60s' },
-  eagleTonic:    { name:'Eagle-Eye Tincture',  emoji:'🦅', fx:'eagle', ms:90000, note:'+15% crit · 90s' },
-  murky:         { name:'Murky Flask',         emoji:'🍶', murky:true, note:'who knows? Reuben swears it’s fine' },
-};
-const POTION_ORDER = Object.keys(POTIONS);
-// what each effect is, for the Items tab, the HUD line and the "fades" banner
-const POT_FX = {
-  might:  { name:'Might',      emoji:'💪', good:true },  iron:{ name:'Ironbark', emoji:'🌲', good:true },
-  swift:  { name:'Swiftfoot',  emoji:'💨', good:true },  eagle:{ name:'Eagle-Eye', emoji:'🦅', good:true },
-  slow:   { name:'Sluggish',   emoji:'🐌' },  weak:{ name:'Weakened', emoji:'🥀' },  poison:{ name:'Queasy', emoji:'🤢' },
-  hic:    { name:'Hiccups',    emoji:'🎈', funny:true }, rainbow:{ name:'Rainbow Plume', emoji:'🌈', funny:true }, tiny:{ name:'Wee Knight', emoji:'🐭', funny:true },
-};
-const potFx = {};                         // effect id → ms left. Not saved: a reload is a clean slate.
-// Reuben's wares: the two healing brews and the tonics are good, honest work. The flask is a gamble.
-Object.assign(SHOP_ITEMS, {
-  greaterPotion:{ name:'Greater Healing',    emoji:'💖', price:40, note:'restores 100 HP', reuben:true },
-  elixir:       { name:'Elixir of Renewal',  emoji:'🌟', price:90, note:'full HP, and clears every ill effect', reuben:true },
-  mightTonic:   { name:'Draught of Might',   emoji:'💪', price:35, note:'+25% attack for 90s', reuben:true },
-  ironTonic:    { name:'Ironbark Tonic',     emoji:'🌲', price:35, note:'+25% defense for 90s', reuben:true },
-  swiftBrew:    { name:'Swiftfoot Brew',     emoji:'💨', price:30, note:'faster on foot for 60s', reuben:true },
-  eagleTonic:   { name:'Eagle-Eye Tincture', emoji:'🦅', price:35, note:'+15% crit for 90s', reuben:true },
-  murky:        { name:'Murky Flask',        emoji:'🍶', price:8,  note:'mostly good · sometimes not · always memorable', reuben:true },
-});
-const REUBEN_WARES = ['potion','greaterPotion','elixir','mightTonic','ironTonic','swiftBrew','eagleTonic','murky'];
-POTION_ORDER.forEach(k=>{ if(inventory[k]===undefined) inventory[k]=0; });
-if(player.quickPot===undefined) player.quickPot='potion';
-
-function potOwned(){ return POTION_ORDER.filter(k=>(inventory[k]||0)>0); }
-function potQuick(){ const q=player.quickPot; return POTIONS[q] ? q : 'potion'; }
-function potFxOn(id){ return (potFx[id]||0)>0; }
-// ── the effects, folded into the knight's numbers ──
-function potSpeedMult(){ let m=1; if(potFxOn('swift')) m*=1.3; if(potFxOn('slow')) m*=0.7; return m; }
-(function(){ const _rc=recalcStats;
-  recalcStats=function(){ const r=_rc.apply(this, arguments);
-    if(potFxOn('might')) player.atk=Math.round(player.atk*1.25);
-    if(potFxOn('weak'))  player.atk=Math.max(1, Math.round(player.atk*0.8));
-    if(potFxOn('iron'))  player.def=Math.round(player.def*1.25);
-    if(potFxOn('eagle')) player.crit=Math.min(0.75, player.crit+0.15);
-    return r; };
-})();
-function potStart(id, ms){ const had=potFxOn(id); potFx[id]=Math.max(potFx[id]||0, ms); if(!had) recalcStats(); potHud(true); }
-function potEnd(id, quiet){ if(!(id in potFx)) return; delete potFx[id]; recalcStats(); potHud(true);
-  if(!quiet && POT_FX[id]) showBanner(`${POT_FX[id].emoji} ${POT_FX[id].name} ${POT_FX[id].good?'fades.':'wears off.'}`, 1100); }
-function potCure(){ ['slow','weak','poison','hic','rainbow','tiny'].forEach(id=>potEnd(id, true)); }
-let _potPoisonT=0, _potHudT=0;
-// once a frame from loop(): effects run down while you play, and hold still while a menu or a conversation is up
-function potTick(dt){
-  if(!boot.done || menu.open || dialogue.open) return;
-  for(const id in potFx){ potFx[id]-=dt; if(potFx[id]<=0) potEnd(id); }
-  if(potFxOn('poison')){ _potPoisonT+=dt; if(_potPoisonT>=1500){ _potPoisonT=0; if(player.hp>1){ player.hp=Math.max(1, player.hp-2); } } }   // queasy, never fatal
-  _potHudT+=dt; if(_potHudT>=500){ _potHudT=0; potHud(); }
-}
-// a line under the health bar: 💪72 🎈20
-function potHud(force){
-  let el=null; try{ el=document.getElementById('potfx');
-    if(!el){ const n=document.getElementById('hpnum'); if(n && n.parentNode && document.createElement){ el=document.createElement('div'); el.id='potfx';
-      el.style.cssText='font-size:calc(8px*var(--tx,1));color:#fff;text-shadow:0 1px 2px #000;margin-top:2px;letter-spacing:1px;pointer-events:none';
-      if(n.insertAdjacentElement) n.insertAdjacentElement('afterend', el); else n.parentNode.appendChild(el); } } }catch(e){ el=null; }
-  if(!el) return;
-  el.textContent=Object.keys(potFx).filter(potFxOn).map(id=>POT_FX[id].emoji+Math.ceil(potFx[id]/1000)).join(' ');
-}
-// ── drinking ──
-const POT_PROV_BAD = ['“The simple believeth every word: but the prudent man looketh well to his going.” — Proverbs 14:15',
-                      '“A prudent man foreseeth the evil, and hideth himself; but the simple pass on, and are punished.” — Proverbs 22:3'];
-const POT_PROV_FUN = '“A merry heart doeth good like a medicine.” — Proverbs 17:22';
-// [weight, outcome] — half good, a quarter funny, a quarter bad (in levels: sluggish, weakened, queasy)
-const MURKY_TABLE = [
-  [15,'heal'], [20,'tonic'], [10,'gold'], [5,'full'],
-  [9,'hic'], [8,'rainbow'], [8,'tiny'],
-  [12,'slow'], [8,'weak'], [5,'poison'],
-];
-function murkyRoll(r){ let t=(r===undefined?Math.random():r)*100; for(const [w,o] of MURKY_TABLE){ if(t<w) return o; t-=w; } return 'heal'; }
-function drinkMurky(){
-  const o=murkyRoll(), sm=s=>`<br><span style="font-size:calc(7px*var(--tx,1))">${s}</span>`;
-  let msg='';
-  if(o==='heal'){ player.hp=Math.min(player.maxHp, player.hp+60); msg='🍶 Warm, and oddly minty. <b>+60 HP</b>'; }
-  else if(o==='tonic'){ const t=['might','iron','swift','eagle'][Math.floor(Math.random()*4)]; potStart(t, 60000); msg=`🍶 It fizzes! <b>${POT_FX[t].emoji} ${POT_FX[t].name}</b> for a minute.`; }
-  else if(o==='gold'){ const g=15+Math.floor(Math.random()*26); gold+=g; msg=`🍶 Something rattles at the bottom… <b>${g} gold!</b>`+sm('Reuben will want to know about this. Do not tell Reuben.'); }
-  else if(o==='full'){ player.hp=player.maxHp; potCure(); msg='🍶 Clear as a mountain spring. <b>Fully restored!</b>'; }
-  else if(o==='hic'){ potStart('hic', 30000); msg='🍶 …hic! <b>🎈 Hiccups.</b>'+sm(POT_PROV_FUN); }
-  else if(o==='rainbow'){ potStart('rainbow', 60000); msg='🍶 Your plume tingles. <b>🌈 Rainbow Plume!</b>'+sm(POT_PROV_FUN); }
-  else if(o==='tiny'){ potStart('tiny', 40000); msg='🍶 The world gets bigger. Or you get smaller. <b>🐭 Wee Knight!</b>'+sm(POT_PROV_FUN); }
-  else if(o==='slow'){ potStart('slow', 40000); msg='🍶 Your boots feel like anvils. <b>🐌 Sluggish.</b>'+sm(POT_PROV_BAD[0]); }
-  else if(o==='weak'){ potStart('weak', 45000); msg='🍶 Your arms go to porridge. <b>🥀 Weakened.</b>'+sm(POT_PROV_BAD[1]); }
-  else if(o==='poison'){ potStart('poison', 20000); msg='🍶 Oh. Oh no. <b>🤢 Queasy</b> — it will pass.'+sm(POT_PROV_BAD[0]); }
-  showBanner(msg, 3000); return o;
-}
-// drink one of `id`. from: 'quick' (the button / key) or 'menu'. Returns true if it was drunk.
-function potDrink(id, from){
-  const P=POTIONS[id]; if(!P) return false;
-  if((inventory[id]||0)<=0){ showBanner(`${P.emoji} No ${P.name} left.`+(from==='quick'?`<br><span style="font-size:calc(7px*var(--tx,1))">Change the quick slot in ☰ Items${typeof ctlKeysFor==='function'?` or with ${ctlKeysFor('nextpot')}`:''}.</span>`:''), 1300); return false; }
-  if(P.heal && !P.cure && player.hp>=player.maxHp){ showBanner('Your health is already full. ❤', 900); return false; }
-  inventory[id]--; if(typeof sfxPotion==='function') sfxPotion();
-  if(P.murky) drinkMurky();
-  else if(P.heal){ player.hp=Math.min(player.maxHp, player.hp+P.heal); if(P.cure) potCure();
-    showBanner(`${P.emoji} ${P.heal>=9999?'Fully restored':'+'+P.heal+' HP'}! (${Math.round(player.hp)}/${player.maxHp}) · ${inventory[id]} left`, 1300); }
-  else if(P.fx){ potStart(P.fx, P.ms); showBanner(`${P.emoji} <b>${POT_FX[P.fx].name}</b> for ${Math.round(P.ms/1000)}s! · ${inventory[id]} left`, 1300); }
-  updatePotBtn(); return true;
-}
-// the quick slot steps through what you carry (PC: its own key; phone: ☰ Items → the ★ row)
-function potCycle(){
-  const own=potOwned(); if(!own.length){ showBanner('🧪 Your potion belt is empty.', 1000); return; }
-  const i=own.indexOf(potQuick()); player.quickPot=own[(i+1)%own.length];
-  const P=POTIONS[player.quickPot]; showBanner(`★ Quick slot: ${P.emoji} <b>${P.name}</b> ×${inventory[player.quickPot]}`, 1100); updatePotBtn();
-}
-// _legacy quickPotion: the Healing Potion only — inventory.potion--, +40 HP, "🧪 +40 HP! (hp/max) · n left"
-quickPotion=function(){
-  if(!boot.done) return;
-  if(menu.open||intro.open||dialogue.open||saveio.open||library.open||trial.open||petB||styl||barn||cutscene.active) return;
-  if(place.kind==='surf'||place.kind==='race'||place.kind==='boatrace'||place.kind==='throne'||place.kind==='tourney') return;
-  const now=performance.now(); if(now-_lastPotAt<1200) return;   // one swig at a time
-  const id=potQuick();
-  if((inventory[id]||0)<=0 && id==='potion'){ showBanner('Your potion belt is empty. 🧪×0', 1000); _lastPotAt=now; return; }
-  if(potDrink(id,'quick')) _lastPotAt=now;
-};
-// _legacy updatePotBtn: '🧪'+inventory.potion, cached on the count
-updatePotBtn=function(){
-  const id=potQuick(), n=inventory[id]||0, key=id+':'+n; if(key===_potShown) return; _potShown=key;
-  const el=document.getElementById('btnPot'); if(!el) return;
-  el.textContent=POTIONS[id].emoji+n; el.classList.toggle('empty', n<=0);
-};
-// ── the Items tab: the ★ quick slot, then every potion you carry (Ⓐ drinks), then bread ──
-function potItemRows(){
-  const rows=[]; const own=potOwned();
-  if(own.length) rows.push({ kind:'quick', id:'quick' });
-  own.forEach(k=>rows.push({ kind:'use', id:k }));
-  if(inventory.bread>0) rows.push({ kind:'use', id:'bread' });
-  return rows;
-}
-function potItemsHtml(rows){
-  let h=''; const q=potQuick();
-  const row=(r,inner)=>{ const idx=rows.indexOf(r); return `<div class="gm-item ${menu.cursor===idx?'cur':''}" data-menurow="${idx}">${inner}</div>`; };
-  const quick=rows.find(r=>r.kind==='quick');
-  h+=`<div class="gm-sectitle">Potions</div>`;
-  if(quick){ const P=POTIONS[q];
-    h+=row(quick, `★ <span style="flex:1;pointer-events:none">Quick slot: ${P.emoji} <b>${P.name}</b> ×${inventory[q]||0} <span class="ds">Ⓐ to change · drink it with 🧪${typeof ctlKeysFor==='function'?' or '+ctlKeysFor('potion'):''}</span></span>`); }
-  const pots=rows.filter(r=>r.kind==='use' && POTIONS[r.id]);
-  if(pots.length) pots.forEach(r=>{ const P=POTIONS[r.id]; const on=r.id===q;
-    h+=row(r, `${P.emoji} <span style="flex:1;pointer-events:none">${P.name} ×${inventory[r.id]} <span class="ds">${P.note}</span></span>${on?'<span style="color:#2f5434;font-weight:bold;pointer-events:none">★</span>':''}`); });
-  else h+=`<div class="gm-item" style="opacity:.6">— none · Healing Potions at any village shop, and more from Reuben's wagon —</div>`;
-  const active=Object.keys(potFx).filter(potFxOn);
-  if(active.length){ h+=`<div class="gm-sectitle">Active</div>`;
-    active.forEach(id=>{ const s=Math.ceil(potFx[id]/1000); h+=`<div class="gm-stat"><span>${POT_FX[id].emoji} ${POT_FX[id].name}</span><b>${Math.floor(s/60)}:${String(s%60).padStart(2,'0')} left</b></div>`; }); }
-  h+=`<div class="gm-sectitle">Food</div>`;
-  const br=rows.find(r=>r.kind==='use'&&r.id==='bread');
-  h+= br ? row(br, `🍞 <span style="flex:1;pointer-events:none">Loaf of Bread ×${inventory.bread} <span class="ds">use: +15 HP</span></span>`) : `<div class="gm-item" style="opacity:.6">— none —</div>`;
-  return h;
-}
-(function(){ const _sel=menuSelect;
-  menuSelect=function(){
-    if(menu.open && menu.tab===TAB.items && menu.focus==='list'){
-      const row=menuRows()[menu.cursor];
-      if(row && row.kind==='quick'){ potCycle(); renderMenu(); return; }
-      if(row && row.kind==='use' && POTIONS[row.id]){ potDrink(row.id,'menu'); if(menu.cursor>=menuRows().length) menu.cursor=Math.max(0,menuRows().length-1); renderMenu(); return; }
-    }
-    return _sel.apply(this, arguments);
-  };
-})();
-// ── the knight, under the influence: a hop for the hiccups, a smaller knight, a plume of every colour ──
-function potRainbow(){ const h=Math.floor((performance.now()/12)%360);
-  return [`hsl(${h},85%,55%)`, `hsl(${(h+40)%360},90%,72%)`, `hsl(${h},80%,35%)`]; }
-(function(){ const _dk=drawKnight;
-  drawKnight=function(x,y){
-    const hic=potFxOn('hic'), tiny=potFxOn('tiny');
-    if(!hic && !tiny) return _dk.apply(this, arguments);
-    let hop=0; if(hic){ const t=performance.now()%1300; if(t<160) hop=-Math.round(Math.sin(t/160*Math.PI)*3); }
-    ctx.save();
-    if(tiny){ const fx=x+8, fy=y+16; ctx.translate(fx, fy+hop); ctx.scale(0.7,0.7); ctx.translate(-fx, -fy); }
-    else ctx.translate(0, hop);
-    try{ return _dk.apply(this, arguments); } finally { ctx.restore(); }
-  };
-})();
-// ════ REUBEN, THE WANDERING MERCHANT ════
-// He camps by the main way into a village whose chapel you have cleansed, and moves on every few minutes
-// of play (playMs, already saved), round the cleansed villages in turn. Inn patrons know where he is.
-const REUBEN_GATES = [[32,32],[33,75],[28,207],[92,146],[92,80],[153,75],[168,165],[167,228],[218,159],[225,26]];  // each village's way in (suite/vsigns.js)
-const REUBEN_STAY_MS = 6*60*1000;
-const REUBEN_SPOTS = {};                  // town → {x,y} (Reuben stands at x,y; his wagon at x+1..x+2), found once
-OUTFITS.reuben = { skin:'#d8a070', hair:'#7a2a1a', top:'#2a7a7a', bottom:'#5a3a5a', hat:'#b8452a', apron:'#e0c070' };   // a patched traveller's robe and a rust-red hood
-HAT_STYLE.reuben = 'hood';
-TRADE_ART.CARTS.reuben = { name:"Reuben's Wagon", d:'#8a8076', D:'#6a6258', L:'#c8c0b4', M:'#4e4840', C:'#2a8a7a', c:'#e8c050', T:'#c04a3a' };
-function reubenUnlocked(){ return !!chapelProgress[0]; }
-function reubenTowns(){ const t=[]; for(let i=0;i<10;i++) if(chapelProgress[i]) t.push(i); return t; }
-function reubenTown(){ const t=reubenTowns(); if(!t.length) return null; const k=Math.floor(Math.max(0, playMs||0)/REUBEN_STAY_MS); return t[((k%t.length)+t.length)%t.length]; }
-// a spot near the way in: open ground (no road, door or sign), three tiles in a row, that blocks nothing —
-// everything a walk from the gate reached before still reaches after, bar the three tiles themselves
-function reubenFindSpot(ti, _loose){ const strict=!_loose;
-  const [gx,gy]=REUBEN_GATES[ti], G=WORLD, NO={2:1,9:1,10:1,11:1,12:1,16:1};
-  const free=(x,y)=>G[y] && G[y][x]!==undefined && !NO[G[y][x]] && walkable(x,y);
-  const reach=(blk)=>{ const seen=new Set([gx+','+gy]), q=[[gx,gy]]; while(q.length){ const [cx,cy]=q.shift();
-      for(const [a,b] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nx=cx+a, ny=cy+b, k=nx+','+ny;
-        if(seen.has(k)||blk.has(k)||Math.abs(nx-gx)>12||Math.abs(ny-gy)>12||!walkable(nx,ny)) continue; seen.add(k); q.push([nx,ny]); } }
-    return seen; };
-  const base=reach(new Set());
-  for(let d=2; d<=7; d++) for(let dy=-d; dy<=d; dy++) for(let dx=-d; dx<=d; dx++){
-    if(Math.max(Math.abs(dx),Math.abs(dy))!==d) continue;
-    const x=gx+dx, y=gy+dy; if(!(free(x,y)&&free(x+1,y)&&free(x+2,y))) continue;
-    // nothing tall behind him: the two rows above are open ground too, and no building's art (roofs reach up) overlaps
-    if(![x,x+1,x+2].every(cx=>free(cx,y-1)&&free(cx,y-2))) continue;
-    // one even patch of ground (the same tile under him, his wagon, and the rows behind and in front):
-    // keeps him off crop rows, out from under banners and towers, and away from props drawn on walkable tiles
-    if(strict){ const g0=G[y][x]; let even=true; for(let yy=y-2; yy<=y+1 && even; yy++) for(let xx=x-1; xx<=x+3; xx++){ if(!G[yy] || G[yy][xx]!==g0){ even=false; break; } } if(!even) continue; }
-    if(buildings.some(b=>x+2>=b.x-1 && x<=b.x+b.w && y>=b.y-3 && y<=b.y+b.h+1)) continue;
-    const cells=[x+','+y,(x+1)+','+y,(x+2)+','+y]; if(!cells.every(c=>base.has(c))) continue;
-    const after=reach(new Set(cells)); if(after.size!==base.size-3) continue;
-    if(![[x-1,y],[x,y+1],[x,y-1]].some(([a,b])=>after.has(a+','+b))) continue;   // you can walk up and talk
-    return { x, y };
-  }
-  return strict ? reubenFindSpot(ti, true) : null;   // no even patch: the plainer rule
-}
-function reubenHere(){
-  if(place.kind!=='overworld' || !reubenUnlocked()) return null;
-  const t=reubenTown(); if(t===null) return null;
-  if(!(t in REUBEN_SPOTS)) REUBEN_SPOTS[t]=reubenFindSpot(t);
-  const s=REUBEN_SPOTS[t]; return s ? { town:t, x:s.x, y:s.y } : null;
-}
-function reubenBlocks(tx,ty){ const r=reubenHere(); return !!r && ty===r.y && tx>=r.x && tx<=r.x+2; }
-function reubenDrawObjs(objs,camX,camY){ const r=reubenHere(); if(!r) return;
-  objs.push({ sy:r.y+1, draw:()=>{ const cx=Math.round(r.x*TILE-camX), cy=Math.round(r.y*TILE-camY);
-    TRADE_ART.drawCart(cx+TILE, cy-2, 'reuben', false);
-    [['#d03030',2],['#30a050',6],['#3060d0',10],['#e0c030',14]].forEach(([c,o],i)=>{   // bottles on the wagon bed, one winking
-      px(cx+TILE+o,cy+1,2,1,'#e8e0d0'); px(cx+TILE+o,cy+2,2,3,c); if(((performance.now()/400|0)%4)===i) px(cx+TILE+o,cy+2,1,1,'#ffffff'); });
-    drawVillager(cx, cy, { outfit:'reuben', dir:(player.x<r.x*TILE?'left':'down'), moving:false, frame:0 }); } });
-}
-const REUBEN_FIRST = [
-  'Ah! A customer! A knight, even. Reuben’s the name — firstborn, if you must know.',
-  'My father always said I was “unstable as water.” Genesis 49:4. Harsh. Accurate, but harsh.',
-  'So I wander. Never the same village for long. Potions, tonics, and a few brews of my own devising.',
-  'The Murky Flask? Eight gold. Could be wonderful. Could be… educational. All sales final!',
-];
-const REUBEN_AGAIN = [
-  ['Back again! My potions are good. Mostly. The murky ones are… a journey.'],
-  ['Read the label, I always say. Then drink it anyway. That’s the Reuben way.'],
-  ['“The prudent man looketh well to his going.” Proverbs. I just sell the bottles.'],
-  ['Fresh stock! Well. Stock.'],
-];
-function reubenOpenShop(){ shopMode={ items:REUBEN_WARES.slice(), idx:0, reuben:true }; showShop(); }
-function reubenAction(fx,fy){
-  const r=reubenHere(); if(!r || fy!==r.y || fx<r.x || fx>r.x+2) return false;
-  if(!player.reubenMet){ player.reubenMet=true; sayAs('Reuben', REUBEN_FIRST, reubenOpenShop); }
-  else sayAs('Reuben', REUBEN_AGAIN[Math.floor(Math.random()*REUBEN_AGAIN.length)], reubenOpenShop);
-  return true;
-}
-// what the inn patrons say
-function reubenRumor(){
-  const t=reubenTown(); if(t===null) return null;
-  const name=TOWN_DATA[t].name;
-  return [`You after potions? Reuben’s wagon is camped outside ${name}, by the way into town.`,
-          `The fellow sells brews of every colour. Some of them colours I’ve never seen. Mind the murky ones.`];
-}
-// shops: the village shop keeps to its own wares; Reuben's are his
-(function(){ const _open=openShop;
-  openShop=function(){ const r=_open.apply(this, arguments);
-    if(shopMode && !shopMode.reuben){ shopMode.items=shopMode.items.filter(k=>!(SHOP_ITEMS[k]&&SHOP_ITEMS[k].reuben)); showShop(); }
-    return r; };
-})();
-
-const BUILD_TAG = '2026-10-09-pr';  // ⌨ a keyboard controls map (☰ System → ⌨ Keyboard Controls: every key shown, two per action, change any of them, saved per computer; a one-time hint names the potion key) · 🛡 five gear slots — weapon, shield, helm, breastplate, legs — each old suit split into its pieces and sold apart, Ⓐ to wear or take off; ✝ the Armor of God, one piece from each late chapel named for its general, all five worn: "Stand firm" · 🧪 potions and tonics (Greater Healing, the Elixir of Renewal, Might, Ironbark, Swiftfoot, Eagle-Eye) and Reuben's Murky Flask, a quick slot (☰ Items ★, or R on a keyboard); 🍶 Reuben the wandering merchant camps by a cleansed village and moves on, and the inns know where (_legacy: '2026-10-09-bf') · ⚖ every boss fought by a bot: a boss's point-blank burst now lands once (standing inside a boss took a whole bar in one frame, Abaddon too); the warded Pretender King mends half as fast and never more than a tenth past where his knights were called (_legacy: '2026-10-09-rf') · 🌱 the Root Fiend can be beaten: each root heals it far less, they come more slowly and three at most, and cutting one holds the next off (_legacy: '2026-10-08-hb') · 👑 boss health bars like the knight's: green → yellow → red, the numbers on the bar, a pale chunk after each blow, a shake (Abaddon, the Pretender ×2, the King of the Shadows) (_legacy: '2026-10-08-hp') · ❤ a clearer health bar: longer, green → yellow → red, the numbers under it, a pale chunk for what a blow took, a shake when struck, a pulse and a red screen edge when low; 🔤 the canvas labels and race captions a size up, the pixel font preloaded; Squire Matthew moves on with the story; Aldric says "my child" (_legacy: '2026-10-08-tx') · 🔤 the text pass: every overlay's text scales with the screen (and ☰ System → Text Size); 📜 the story in order: lines that came too soon or went stale now follow the story, Abaddon is not re-fought (or un-won by dying), the knighting and the wedding staged true, the wedding verse Ecclesiastes 4:12, the generals' pronouns, no shared names (_legacy: '2026-10-07-si') · 🛒🍺 the shops and inns made grand: five shop halls (general store, forge, fish market, capital market, bazaar) and a two-storey inn with each town's sign over the hearth, all painted whole; the phone copy now shortens local names, proven the same program by scope (_legacy: '2026-10-07-ks') · 🛏 the homestead indoors: the knight's suite (library, fireplace, four-poster, wardrobe glass) with a walkout balcony over the farm, made over for Madison after the wedding and her place on the balcony; the family hall, the children's floor and the barn painted whole; Madison redrawn (dirty-blonde hair, four facings); the Old Mule drawn as a mule; one Sir Aldric after the wedding (_legacy: '2026-10-07-ty') · 🏇 the Tilting Yard: Stormgate's lists on the meadow under the north wall — grandstand, tilt, pavilions, racks and banners; two new north gates down from the city; Stormgate's marshals at its rail (_legacy: '2026-10-07-tk') · ⚔ tourney clean-up: you ride the joust yourself and the calls fade up in the sky; the knight seen from behind, turned square to his man, with forehand, backhand, guard, Ground Pound and hurt frames; a VICTORY / DEFEAT card that a mashed Ⓐ can't skip (_legacy: '2026-10-07-tj') · ⚔ the knight tourneys from behind the knight: circle the champion in duels, roam the melee, his combo and Ground Pound, read the wind-up and parry; 🐎 the joust (its own contest and the Grand Tournament's first bout); no potions (_legacy: '2026-10-07-sc') · 🐎 the tourney's horse race is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
+const BUILD_TAG = '2026-10-09-bf';  // ⚖ every boss fought by a bot: a boss's point-blank burst now lands once (standing inside a boss took a whole bar in one frame, Abaddon too); the warded Pretender King mends half as fast and never more than a tenth past where his knights were called (_legacy: '2026-10-09-rf') · 🌱 the Root Fiend can be beaten: each root heals it far less, they come more slowly and three at most, and cutting one holds the next off (_legacy: '2026-10-08-hb') · 👑 boss health bars like the knight's: green → yellow → red, the numbers on the bar, a pale chunk after each blow, a shake (Abaddon, the Pretender ×2, the King of the Shadows) (_legacy: '2026-10-08-hp') · ❤ a clearer health bar: longer, green → yellow → red, the numbers under it, a pale chunk for what a blow took, a shake when struck, a pulse and a red screen edge when low; 🔤 the canvas labels and race captions a size up, the pixel font preloaded; Squire Matthew moves on with the story; Aldric says "my child" (_legacy: '2026-10-08-tx') · 🔤 the text pass: every overlay's text scales with the screen (and ☰ System → Text Size); 📜 the story in order: lines that came too soon or went stale now follow the story, Abaddon is not re-fought (or un-won by dying), the knighting and the wedding staged true, the wedding verse Ecclesiastes 4:12, the generals' pronouns, no shared names (_legacy: '2026-10-07-si') · 🛒🍺 the shops and inns made grand: five shop halls (general store, forge, fish market, capital market, bazaar) and a two-storey inn with each town's sign over the hearth, all painted whole; the phone copy now shortens local names, proven the same program by scope (_legacy: '2026-10-07-ks') · 🛏 the homestead indoors: the knight's suite (library, fireplace, four-poster, wardrobe glass) with a walkout balcony over the farm, made over for Madison after the wedding and her place on the balcony; the family hall, the children's floor and the barn painted whole; Madison redrawn (dirty-blonde hair, four facings); the Old Mule drawn as a mule; one Sir Aldric after the wedding (_legacy: '2026-10-07-ty') · 🏇 the Tilting Yard: Stormgate's lists on the meadow under the north wall — grandstand, tilt, pavilions, racks and banners; two new north gates down from the city; Stormgate's marshals at its rail (_legacy: '2026-10-07-tk') · ⚔ tourney clean-up: you ride the joust yourself and the calls fade up in the sky; the knight seen from behind, turned square to his man, with forehand, backhand, guard, Ground Pound and hurt frames; a VICTORY / DEFEAT card that a mashed Ⓐ can't skip (_legacy: '2026-10-07-tj') · ⚔ the knight tourneys from behind the knight: circle the champion in duels, roam the melee, his combo and Ground Pound, read the wind-up and parry; 🐎 the joust (its own contest and the Grand Tournament's first bout); no potions (_legacy: '2026-10-07-sc') · 🐎 the tourney's horse race is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
 
 // ── tiny Web Audio kit (game has no audio system yet; kept self-contained) ──
 let bootAC=null;
@@ -40485,7 +39914,7 @@ function uwSurfaceAsked(){
   if(place.kind!=='underwater' || dialogue.open || uw.quiz || cross.t>0) return;
   uwSurface(uwSaved.from||'A');
 }
-if(UW_ON && typeof addEventListener==='function') addEventListener('keydown', e=>{ if(typeof ctlKey==='function' && ctlKey(e)) return;
+if(UW_ON && typeof addEventListener==='function') addEventListener('keydown', e=>{
   if(e && e.key && e.key.toLowerCase()==='u' && !e.repeat && place.kind==='underwater') uwSurfaceAsked(); });
 
 // ── Ⓐ underwater ──
