@@ -17440,53 +17440,7 @@ function onDungeonDemonKilled(d){
   //   the demons are pressure while you find them — not a checklist.
   else if(dungeonAllClear()) showBanner('✨ Floor cleared — but the stone still stands.', 1600);
 }
-// ── 📦 SET CHESTS (2026-10-09-ch) ── Zak: "remap the dungeon chests to not be random so players can maybe get
-//   at least some potions and gold - a weapon on the first chapel", "the later the chapel the more gold".
-//   Every chapel chest now holds what this table says. A floor's chests are counted in reading order (top row
-//   first, left to right), so the first chest you find on the maze floor is chest 0, whatever the maze looks like.
-//   Items: [kind, id, n] — 'gear' (a piece already owned turns into gold instead), 'pot' (a brew), 'gold'.
-const CHAPEL_CHESTS = {
-  0: { [FLOOR.maze]:[ [['gear','shortsword']], [['pot','potion',2]] ],                                   [FLOOR.sanctum]:[ [['gold',50],['gear','leather_legs']] ] },
-  1: { [FLOOR.maze]:[ [['gear','buckler'],['pot','potion',2]] ],                                         [FLOOR.sanctum]:[ [['gold',70],['gear','leather_cap']] ] },
-  2: { [FLOOR.maze]:[ [['gear','chain_coif']], [['pot','potion',2]] ],                       [FLOOR.sanctum]:[ [['gold',100]] ] },
-  3: { [FLOOR.maze]:[ [['gear','chain_legs']], [['pot','potion',2],['pot','ironTonic',1]] ],             [FLOOR.sanctum]:[ [['gold',130]] ] },
-  4: { [FLOOR.maze]:[ [['gear','kite']], [['pot','potion',2],['pot','greaterPotion',1]] ],               [FLOOR.sanctum]:[ [['gold',160]] ] },
-  5: { [FLOOR.maze]:[ [['gear','plate_helm']], [['pot','greaterPotion',2],['pot','mightTonic',1]] ],     [FLOOR.sanctum]:[ [['gold',190]] ] },
-  6: { [FLOOR.maze]:[ [['gear','plate_legs']], [['pot','greaterPotion',2],['pot','swiftBrew',1]] ],      [FLOOR.sanctum]:[ [['gold',230]] ] },
-  7: { [FLOOR.maze]:[ [['gear','tower']], [['pot','greaterPotion',2]] ],
-       [FLOOR.maze2]:[ [['gear','pal_helm']], [['pot','eagleTonic',1],['pot','murky',2]] ],              [FLOOR.sanctum]:[ [['gold',280]] ] },
-  8: { [FLOOR.maze]:[ [['gear','pal_legs']], [['pot','greaterPotion',2],['pot','ironTonic',1]] ],
-       [FLOOR.maze2]:[ [['gear','pal_shield']], [['pot','elixir',1],['pot','mightTonic',1]] ],           [FLOOR.sanctum]:[ [['gold',340]] ] },
-  9: { /* Hellgate has no first maze */ [FLOOR.maze2]:[ [['gear','armorofgod'],['gold',150]], [['pot','elixir',2],['pot','greaterPotion',2]] ],         [FLOOR.sanctum]:[ [['gold',420]] ] },
-};
-const FOREST_CHEST = [['gold',50],['pot','potion',1]];   // the Forest of Disillusionment's chests, all alike
-// which chest this is on its floor (reading order), or -1
-function chestRank(fx,fy){ const g=dungeon.grid; if(!g) return -1; let n=0;
-  for(let y=0;y<g.length;y++) for(let x=0;x<g[y].length;x++) if(g[y][x]===5){ if(x===fx&&y===fy) return n; n++; }
-  return -1; }
-// what a chest holds (without opening it)
-function chestContents(fx,fy){
-  if(dungeon.forest) return FOREST_CHEST;
-  const t=CHAPEL_CHESTS[dungeon.townId], ft=dungeon.floors && dungeon.floors[dungeon.floorIdx];
-  const set=t && t[ft], r=chestRank(fx,fy);
-  if(set && r>=0 && set[r]) return set[r];
-  const lvl=(TOWN_DATA[dungeon.townId]||{lvl:5}).lvl; return [['gold', 20+lvl*6]];   // a chest the table doesn't name: gold, as before
-}
-function dungeonChestReward(fx,fy){
-  if(fx===undefined) return dungeonChestReward_legacy();
-  const parts=[], lvl=(TOWN_DATA[dungeon.townId]||{lvl:6}).lvl;
-  for(const [kind,id,n] of chestContents(fx,fy)){
-    if(kind==='gold'){ const g=Math.round(id*player.goldMult); gold+=g; parts.push(`${g} gold`); }
-    else if(kind==='pot'){ const P=(typeof POTIONS!=='undefined'&&POTIONS[id])||{name:id,emoji:'🧪'}; inventory[id]=(inventory[id]||0)+n;
-      parts.push(`${n>1?n+' ':''}${P.emoji} ${P.name}${n>1&&!/s$/.test(P.name)?'s':''}`); if(typeof updatePotBtn==='function') updatePotBtn(); }
-    else if(kind==='gear'){ const e=EQUIP[id];
-      if(e && !player.ownedGear[id]){ player.ownedGear[id]=true; parts.push(`${e.emoji} ${e.name}`); }
-      else { const g=Math.round((30+lvl*5)*player.goldMult); gold+=g; parts.push(`${g} gold`); } }   // already yours: its worth in gold
-  }
-  return `📦 Chest: <b>${parts.join(' · ')}!</b>` + (chestContents(fx,fy).some(c=>c[0]==='gear') ? `<br><span style="font-size:calc(7px*var(--tx,1))">Equip gear in the ☰ menu.</span>` : '');
-}
-// _legacy (random rolls): half gold, three in ten 2 Healing Potions, else a gear find by town
-function dungeonChestReward_legacy(){
+function dungeonChestReward(){
   const td=dungeon.forest ? {lvl:6, boss:'', bossHp:0} : TOWN_DATA[dungeon.townId];
   const r=Math.random();
   if(r<0.5){ const g=20+td.lvl*6; gold+=Math.round(g*player.goldMult); return `📦 Chest: <b>${Math.round(g*player.goldMult)} gold!</b>`; }
@@ -19460,7 +19414,7 @@ function doAction(quiet){
         //   the design, whichever loot chest was deepest held the seal key.
         //   _keyChest has been null since the plaza took the job, so the branch
         //   could never fire and every maze chest already fell through to here.
-        const reward=dungeonChestReward(fx,fy); showBanner(reward, 2600);   // 📦 set contents, by chapel and chest
+        const reward=dungeonChestReward(); showBanner(reward, 2200);
       }
       return true;
     }
@@ -39203,172 +39157,7 @@ function reubenRumor(){
     return r; };
 })();
 
-// ════════════════════════════════════════════════════════════════
-//  🏹 RANGED WEAPONS — the sling, the hunting bow, the crossbow, the throwing axes (2026-10-09-rw)
-// ════════════════════════════════════════════════════════════════
-// Zak: "Eventually add more ranged weapon options" → "Let's do it". In the weapon slot like the Prophetic
-// Bow ("Weapon slot, like the bow"), shots unlimited, all four ("Shepherd's Sling, Hunting Bow, Crossbow,
-// Throwing Axes / Javelins"), from "Village shops / libraries" and "Quests / bounties".
-// Each fires through the bow's own arrow system (fireArrow / tickArrows), which now reads RANGED[id]:
-// speed, range (frames of flight), how many foes a shot passes through, how hard it throws them back,
-// and what flies. The 3rd combo hit is still the universal Ground Pound.
-Object.assign(EQUIP, {
-  sling:    { name:"Shepherd's Sling", slot:'weapon', type:'light', atk:5,  crit:0.03, emoji:'🌀', special:'flurry',   ranged:true },
-  huntbow:  { name:'Hunting Bow',      slot:'weapon', type:'light', atk:13, crit:0.05, emoji:'🏹', special:'holyslash', ranged:true },
-  throwaxe: { name:'Throwing Axes',    slot:'weapon', type:'heavy', atk:18, crit:0.04, emoji:'🪓', special:'earthshaker', ranged:true },
-  crossbow: { name:'Crossbow',         slot:'weapon', type:'heavy', atk:22, crit:0.06, emoji:'🎯', special:'earthshaker', ranged:true },
-});
-EQUIP.bow_samuel.ranged = true;
-// speed px/frame · life frames (range = speed×life) · pierce = foes a shot can pass through · knock · shot = what flies
-const RANGED = {
-  sling:      { speed:3.0, life:20, pierce:1, knock:3, shot:'stone' },    // ~3.8 tiles: David's weapon, short and sure
-  huntbow:    { speed:3.2, life:26, pierce:1, knock:4, shot:'arrow' },    // ~5.2 tiles
-  bow_samuel: { speed:3.2, life:26, pierce:1, knock:4, shot:'holy' },     // a gold-headed arrow trailing light
-  throwaxe:   { speed:2.6, life:18, pierce:1, knock:10, shot:'axe' },     // ~2.9 tiles, thrown hard
-  crossbow:   { speed:4.2, life:28, pierce:3, knock:6, shot:'bolt' },     // ~7.3 tiles, through three
-};
-// art: fam 'bow' makes Ⓐ shoot (bowEquipped). Palettes: B body, H light, D dark, E edge, ST string/cord, G grip, M metal
-Object.assign(WEAPON_ART, {
-  sling:    { fam:'bow', pal:{ B:'#8a6a3a', H:'#b08a52', D:'#5a4022', E:'#3a2812', ST:'#a08058', G:'#6a4a2a', M:'#9aa0a8' } },
-  huntbow:  { fam:'bow', pal:{ B:'#8a5a2c', H:'#b07a44', D:'#5a3818', E:'#3a2410', ST:'#d8d4c8', G:'#4a6a3a', M:'#9aa0a8' } },
-  throwaxe: { fam:'bow', pal:{ B:'#c8ccd4', H:'#f0f2f6', D:'#7a808c', E:'#4a505a', ST:'#6a4a2a', G:'#7a5230', M:'#c8ccd4' } },
-  crossbow: { fam:'bow', pal:{ B:'#6a4a2a', H:'#8a6a42', D:'#4a301a', E:'#2a1a0c', ST:'#d8d4c8', G:'#5a3a1e', M:'#aab0bc' } },
-});
-const RW_IDS = ['sling','huntbow','throwaxe','crossbow'];
-// where they're sold or won
-Object.assign(SHOP_ITEMS, { sling:{ name:"Shepherd's Sling", emoji:'🌀', price:25, note:'ranged · +5 atk · short, sure shots', gear:'sling' } });
-LIBRARY_PRICE.huntbow=140; LIBRARY_PRICE.throwaxe=220; LIBRARY_PRICE.crossbow=320;
-LIBRARY_WARES[3].unshift('huntbow');       // Thornwood, the hunters' town
-LIBRARY_WARES[4].unshift('throwaxe');      // Dusthaven
-LIBRARY_WARES[6].unshift('crossbow');      // Ashfield
-LIBRARY_WARES[9].push('crossbow');
-BOUNTY_GEAR_POOL.push('huntbow','throwaxe','crossbow');
-
-// ── the art: in his LEFT hand, the hand positions the blades use (down 13,9 · left 1,9 · up 3) ──
-(function rangedArt(){
-  const which=w=>{ for(const id of RW_IDS) if(WEAPON_ART[id]===w) return id; return null; };
-  const wbow=(P,p,bx,y0,tips)=>{ P(bx,y0,1,1,p.D); P(bx+1,y0+1,1,2,p.B); P(bx+2,y0+3,1,5,p.B); P(bx+1,y0+8,1,2,p.B); P(bx,y0+10,1,1,p.D); P(bx+2,y0+4,1,2,p.H); P(bx,y0+1,1,9,p.ST); P(bx+1,y0+5,2,1,p.G); };
-  const act={
-    sling:{ D:(P,p)=>{ for(let i=0;i<4;i++) P(13+i,8-i,1,1,p.ST); P(16,2,3,3,p.B); P(16,2,3,1,p.H); P(17,3,1,1,p.M); },             // cord whirled up, the pouch with its stone
-            L:(P,p)=>{ for(let i=1;i<=5;i++) P(1-i,9-((i/3)|0),1,1,p.ST); P(-7,6,3,3,p.B); P(-7,6,3,1,p.H); P(-6,7,1,1,p.M); },
-            U:(P,p)=>{ P(3,3,1,5,p.ST); P(2,0,3,3,p.B); P(2,0,3,1,p.H); P(3,1,1,1,p.M); } },
-    huntbow:{ D:(P,p)=>{ wbow(P,p,15,3); P(16,8,3,1,p.ST); P(19,8,1,1,p.M); },                                                      // a plain longbow, an arrow nocked
-              L:(P,p)=>{ P(0,4,1,1,p.D); P(-1,5,1,2,p.B); P(-2,7,1,5,p.B); P(-1,12,1,2,p.B); P(0,14,1,1,p.D); P(-2,8,1,2,p.H); P(0,5,1,9,p.ST); P(-2,9,2,1,p.G); P(-6,9,4,1,p.ST); P(-7,9,1,1,p.M); },
-              U:(P,p)=>{ P(3,1,1,1,p.D); P(2,2,1,5,p.B); P(3,7,1,1,p.D); P(4,2,1,5,p.ST); } },
-    crossbow:{ D:(P,p)=>{ for(let i=0;i<6;i++) P(13+i,9-i,1,1,i<2?p.G:p.B); P(13,10,1,1,p.D);                                       // the stock up and out, the steel prod across its head
-                 P(16,0,5,1,p.M); P(15,1,1,1,p.M); P(21,1,1,1,p.M); P(16,1,5,1,p.ST); P(18,2,1,1,p.E); },
-               L:(P,p)=>{ P(-5,9,7,2,p.B); P(-5,9,7,1,p.H); P(1,10,1,2,p.G); P(-6,5,1,9,p.M); P(-5,6,1,7,p.ST); P(-7,9,1,1,p.M); },
-               U:(P,p)=>{ P(3,3,1,5,p.B); P(0,2,7,1,p.M); P(0,3,1,1,p.M); P(6,3,1,1,p.M); P(1,3,5,1,p.ST); } },
-    throwaxe:{ D:(P,p)=>{ for(let i=0;i<5;i++) P(13+i,9-i,1,1,p.G); P(17,1,3,4,p.B); P(17,1,3,1,p.H); P(19,2,1,3,p.D); P(20,2,1,2,p.H); },   // a hatchet raised to throw
-               L:(P,p)=>{ for(let i=0;i<5;i++) P(1-i,9,1,1,p.G); P(-7,6,3,4,p.B); P(-7,6,3,1,p.H); P(-8,7,1,2,p.H); P(-5,6,1,4,p.D); },
-               U:(P,p)=>{ P(3,3,1,5,p.G); P(1,0,4,3,p.B); P(1,0,4,1,p.H); } },
-  };
-  // at rest (hand hx,hy; side = the way the arm faces)
-  const rest={
-    sling:   (P,p,hx,hy,side,where)=>{ P(hx,hy+1,1,4,p.ST); P(hx-1,hy+5,3,2,p.B); P(hx-1,hy+5,3,1,p.H); },                         // swinging from his hand
-    huntbow: (P,p,hx,hy,side,where)=>{ if(where==='up'){ P(hx,hy-5,1,11,p.D); P(hx+1,hy-4,1,9,p.ST); return; }
-               if(where==='left'){ P(hx,hy-5,1,11,p.B); P(hx,hy-1,1,2,p.G); return; }
-               P(hx,hy-5,1,1,p.D); P(hx+side,hy-4,1,3,p.B); P(hx+side,hy-4,1,1,p.H); P(hx+side,hy+2,1,3,p.B); P(hx,hy+5,1,1,p.D); P(hx,hy-4,1,9,p.ST); P(hx,hy,1,1,p.G); },
-    crossbow:(P,p,hx,hy,side,where)=>{ if(where==='left'){ P(hx-5,hy+1,6,2,p.B); P(hx-5,hy+1,6,1,p.H); P(hx-6,hy-2,1,7,p.M); return; }   // carried level, the prod forward
-               P(hx,hy-1,1,7,p.B); P(hx,hy-1,1,2,p.G); P(hx-2,hy+6,5,1,p.M); P(hx-2,hy+5,1,1,p.M); P(hx+2,hy+5,1,1,p.M); },                // hanging, prod down
-    throwaxe:(P,p,hx,hy,side,where)=>{ P(hx,hy-1,1,5,p.G); P(hx-1+(side>0?0:-1),hy+4,3,3,p.B); P(hx-1+(side>0?0:-1),hy+4,3,1,p.H); },   // hanging head-down
-  };
-  const A={ D:drawWeaponDown, L:drawWeaponLeft, U:drawWeaponUp };
-  const make=(k,where)=>function(P,w){ const id=which(w); if(!id) return A[k](P,w);
-    if(typeof _wRest!=='undefined' && _wRest){ const sw=_kSwing(_wRest.f); let hx,hy,side;
-      if(where==='down'){ hx=13; hy=10-sw; side=1; } else if(where==='left'){ hx=1-sw; hy=10; side=-1; } else { hx=2; hy=10; side=-1; }
-      return rest[id](P,w.pal,hx,hy,side,where); }
-    return act[id][k](P,w.pal); };
-  drawWeaponDown=make('D','down'); drawWeaponLeft=make('L','left'); drawWeaponUp=make('U','up');
-})();
-// ── firing: the bow's arrow system, per weapon ──
-const _rwFire = fireArrow;
-fireArrow = function(){
-  const id=player.equip && player.equip.weapon, R=RANGED[id];
-  if(!R) return _rwFire.apply(this, arguments);
-  if(!arrowsAllowedHere()) return;
-  const fv = player.dir==='up'?[0,-1] : player.dir==='down'?[0,1] : player.dir==='left'?[-1,0] : [1,0];
-  playerShots.push({ x:player.x+TILE/2, y:player.y+TILE/2, vx:fv[0]*R.speed, vy:fv[1]*R.speed, t:R.life, dir:player.dir,
-                     shot:R.shot, pierce:R.pierce, knock:R.knock, hit:[], spin:0 });
-};
-// _legacy tickArrows: one arrow strikes once, knock 4. A shot now strikes up to `pierce` foes, never the same one twice.
-tickArrows = function(){
-  if(!playerShots.length) return;
-  if(!arrowsAllowedHere()){ playerShots.length=0; return; }
-  playerShots = playerShots.filter(s=>{
-    s.x+=s.vx; s.y+=s.vy; s.t--; s.spin=(s.spin||0)+1;
-    if(s.t<=0) return false;
-    if(!walkable(Math.floor(s.x/TILE), Math.floor(s.y/TILE))) return false;
-    if(place.kind==='overworld' && rgStrikeEthan(s.x,s.y,null,9,0)){ sfxHit(false); return false; }
-    const hit=s.hit||(s.hit=[]), pierce=s.pierce||1;
-    for(const d of demons){
-      if(!d.alive || hit.indexOf(d)>=0) continue;
-      const vx=(d.x+TILE/2)-s.x, vy=(d.y+TILE/2)-s.y, dist=Math.hypot(vx,vy);
-      if(dist>9) continue;
-      let dmg = Math.max(1, Math.round(player.atk) + (Math.random()*5|0) - 2);
-      const isCrit = Math.random() < player.crit;
-      if(isCrit) dmg = Math.round(dmg*1.8);
-      dmg = bossHitGate(d, dmg);
-      if(dmg<0){ d.hurt=3; sfxBlock(); return false; }
-      applyDemonHit(d, dmg, isCrit, vx, vy, dist, s.knock||4);
-      sfxHit(isCrit); player.comboT=48; hit.push(d);
-      if(hit.length>=pierce) return false;
-    }
-    return true;
-  });
-};
-// ── what flies ──
-const _rwDraw = drawArrows;
-drawArrows = function(camX,camY){
-  if(!playerShots.length) return;
-  const plain=playerShots.filter(s=>!s.shot || s.shot==='arrow'), rest=playerShots.filter(s=>s.shot && s.shot!=='arrow');
-  if(plain.length){ const all=playerShots; playerShots=plain; try{ _rwDraw(camX,camY); } finally{ playerShots=all; } }
-  for(const s of rest){
-    const sx=Math.round(s.x-camX), sy=Math.round(s.y-camY), horiz=(s.dir==='left'||s.dir==='right'), f=s.dir==='left'||s.dir==='up'?-1:1;
-    if(s.shot==='stone'){ ctx.fillStyle='#7a7e86'; ctx.fillRect(sx-1,sy-1,3,3); ctx.fillStyle='#c8ccd4'; ctx.fillRect(sx-1,sy-1,1,1);
-      ctx.fillStyle='rgba(200,200,210,.35)'; if(horiz) ctx.fillRect(sx-f*4,sy,3,1); else ctx.fillRect(sx,sy-f*4,1,3); }
-    else if(s.shot==='bolt'){ ctx.fillStyle='#4a301a'; if(horiz) ctx.fillRect(sx-3,sy,6,2); else ctx.fillRect(sx,sy-3,2,6);
-      ctx.fillStyle='#e8ecf2'; if(horiz) ctx.fillRect(f>0?sx+3:sx-5,sy-1,2,4); else ctx.fillRect(sx-1,f>0?sy+3:sy-5,4,2);
-      ctx.fillStyle='#b8c0cc'; if(horiz) ctx.fillRect(f>0?sx-4:sx+3,sy-1,1,4); else ctx.fillRect(sx-1,f>0?sy-4:sy+3,4,1); }
-    else if(s.shot==='holy'){ const dx=horiz?f:0, dy=horiz?0:f;
-      ctx.fillStyle='rgba(255,240,180,.35)'; ctx.fillRect(sx-dx*9-(horiz?0:1), sy-dy*9-(horiz?1:0), horiz?5:3, horiz?3:5);   // the trail
-      ctx.fillStyle='#8a6a34'; if(horiz) ctx.fillRect(sx-4,sy,7,1); else ctx.fillRect(sx,sy-4,1,7);
-      ctx.fillStyle='#ffe07a'; if(horiz) ctx.fillRect(f>0?sx+3:sx-5,sy-1,2,3); else ctx.fillRect(sx-1,f>0?sy+3:sy-5,3,2);
-      ctx.fillStyle='#ffffff'; ctx.fillRect(sx+dx*4,sy+dy*4,1,1);
-      ctx.fillStyle='#f4f0e4'; if(horiz) ctx.fillRect(f>0?sx-4:sx+3,sy-1,2,3); else ctx.fillRect(sx-1,f>0?sy-4:sy+3,3,2); }
-    else if(s.shot==='axe'){ const k=((s.spin/3)|0)%4, o=[[0,-3],[3,0],[0,3],[-3,0]][k];   // a hatchet turning end over end
-      ctx.fillStyle='#7a5230'; for(let q=0;q<=3;q++) ctx.fillRect(sx-Math.round(o[0]*q/3)-1, sy-Math.round(o[1]*q/3)-1, 2, 2);   // the haft, unbroken
-      ctx.fillStyle='#c8ccd4'; ctx.fillRect(sx+o[0]-2,sy+o[1]-2,4,4); ctx.fillStyle='#f0f2f6'; ctx.fillRect(sx+o[0]-2,sy+o[1]-2,4,1); }
-  }
-};
-
-// ── the aim: while a shot is loosed he holds the weapon out in his left hand (the drawn art above),
-//    instead of the bow's old ghosted sweep. The Prophetic Bow keeps its own.
-const _rwSwing = drawSwingArc;
-drawSwingArc = function(x,y,o){
-  const id=player.equip && player.equip.weapon, holy=id==='bow_samuel';
-  if((RW_IDS.indexOf(id)<0 && !holy) || (typeof beastForm==='function' && beastForm())) return _rwSwing.apply(this, arguments);
-  const d=player.swingDir||player.dir||'down', was=(typeof _wRest!=='undefined')?_wRest:null;
-  const P = d==='right' ? (lx,ly,ww,hh,c)=>px(x+16-lx-ww, y+ly+o, ww,hh,c) : (lx,ly,ww,hh,c)=>px(x+lx, y+ly+o, ww,hh,c);
-  if(holy){ RW_AIM.bow_samuel(P, WEAPON_ART.bow_samuel.pal, d); return; }   // Zak: the hunting bow's draw, "with a slightly tweaked special feature"
-  const w=WEAPON_ART[id];
-  try{ if(was!==null) _wRest=null;
-    if(d==='down') drawWeaponDown(P,w); else if(d==='up') drawWeaponUp(P,w); else drawWeaponLeft(P,w);
-  } finally { if(was!==null) _wRest=was; }
-};
-// _legacy: the Prophetic Bow loosed with the old ghosted sweep (_rawSwing). Zak (2026-10-09): "I actually like the
-//   hunting bow animation better than the prophetic bow in the mock up - maybe copy that one and apply just a slightly
-//   tweaked special feature". So it draws the hunting bow's shape in its own wood, gold-tipped, a gold-headed arrow
-//   on the string, and a glint of light that runs along the arrow as it is drawn.
-const RW_AIM = { bow_samuel:(P,p,d)=>{ const gold='#e8c25a', glint='#fff7c8', tw=((performance.now()/90)|0)%4;
-  if(d==='down'){ const bx=15, y0=3;
-    P(bx,y0,1,1,gold); P(bx+1,y0+1,1,2,p.B); P(bx+2,y0+3,1,5,p.B); P(bx+1,y0+8,1,2,p.B); P(bx,y0+10,1,1,gold); P(bx+2,y0+4,1,2,p.H); P(bx,y0+1,1,9,p.ST); P(bx+1,y0+5,2,1,p.G);
-    P(16,8,3,1,p.ST); P(19,8,1,1,gold); P(16+tw,8,1,1,glint); P(20,7,1,1,glint); return; }
-  if(d==='up'){ P(3,1,1,1,gold); P(2,2,1,5,p.B); P(3,7,1,1,gold); P(4,2,1,5,p.ST); P(4,0,1,1,glint); return; }
-  P(0,4,1,1,gold); P(-1,5,1,2,p.B); P(-2,7,1,5,p.B); P(-1,12,1,2,p.B); P(0,14,1,1,gold); P(-2,8,1,2,p.H); P(0,5,1,9,p.ST); P(-2,9,2,1,p.G);
-  P(-6,9,4,1,p.ST); P(-7,9,1,1,gold); P(-3-tw,9,1,1,glint); P(-8,8,1,1,glint); } };
-
-const BUILD_TAG = '2026-10-09-rw';  // 🏹 ranged weapons in the weapon slot, unlimited shots: the Shepherd's Sling (village shops), the Hunting Bow (Thornwood), the Throwing Axes (Dusthaven, thrown hard), the Crossbow (Ashfield and Hellgate, a bolt through three); each held in his left hand at rest and as he looses; the Prophetic Bow now draws like the hunting bow, gold-tipped, its arrows gold and trailing light (_legacy: '2026-10-09-ch') · 📦 set chapel chests: no more dice — every chest holds what its chapel's table says: the Short Sword in Hearthvale's first chest, Healing Potions (and later Reuben's brews) in every chapel, a piece of armour for each tier, and more gold the deeper you go (_legacy: '2026-10-09-pr') · ⌨ a keyboard controls map (☰ System → ⌨ Keyboard Controls: every key shown, two per action, change any of them, saved per computer; a one-time hint names the potion key) · 🛡 five gear slots — weapon, shield, helm, breastplate, legs — each old suit split into its pieces and sold apart, Ⓐ to wear or take off; ✝ the Armor of God, one piece from each late chapel named for its general, all five worn: "Stand firm" · 🧪 potions and tonics (Greater Healing, the Elixir of Renewal, Might, Ironbark, Swiftfoot, Eagle-Eye) and Reuben's Murky Flask, a quick slot (☰ Items ★, or R on a keyboard); 🍶 Reuben the wandering merchant camps by a cleansed village and moves on, and the inns know where (_legacy: '2026-10-09-bf') · ⚖ every boss fought by a bot: a boss's point-blank burst now lands once (standing inside a boss took a whole bar in one frame, Abaddon too); the warded Pretender King mends half as fast and never more than a tenth past where his knights were called (_legacy: '2026-10-09-rf') · 🌱 the Root Fiend can be beaten: each root heals it far less, they come more slowly and three at most, and cutting one holds the next off (_legacy: '2026-10-08-hb') · 👑 boss health bars like the knight's: green → yellow → red, the numbers on the bar, a pale chunk after each blow, a shake (Abaddon, the Pretender ×2, the King of the Shadows) (_legacy: '2026-10-08-hp') · ❤ a clearer health bar: longer, green → yellow → red, the numbers under it, a pale chunk for what a blow took, a shake when struck, a pulse and a red screen edge when low; 🔤 the canvas labels and race captions a size up, the pixel font preloaded; Squire Matthew moves on with the story; Aldric says "my child" (_legacy: '2026-10-08-tx') · 🔤 the text pass: every overlay's text scales with the screen (and ☰ System → Text Size); 📜 the story in order: lines that came too soon or went stale now follow the story, Abaddon is not re-fought (or un-won by dying), the knighting and the wedding staged true, the wedding verse Ecclesiastes 4:12, the generals' pronouns, no shared names (_legacy: '2026-10-07-si') · 🛒🍺 the shops and inns made grand: five shop halls (general store, forge, fish market, capital market, bazaar) and a two-storey inn with each town's sign over the hearth, all painted whole; the phone copy now shortens local names, proven the same program by scope (_legacy: '2026-10-07-ks') · 🛏 the homestead indoors: the knight's suite (library, fireplace, four-poster, wardrobe glass) with a walkout balcony over the farm, made over for Madison after the wedding and her place on the balcony; the family hall, the children's floor and the barn painted whole; Madison redrawn (dirty-blonde hair, four facings); the Old Mule drawn as a mule; one Sir Aldric after the wedding (_legacy: '2026-10-07-ty') · 🏇 the Tilting Yard: Stormgate's lists on the meadow under the north wall — grandstand, tilt, pavilions, racks and banners; two new north gates down from the city; Stormgate's marshals at its rail (_legacy: '2026-10-07-tk') · ⚔ tourney clean-up: you ride the joust yourself and the calls fade up in the sky; the knight seen from behind, turned square to his man, with forehand, backhand, guard, Ground Pound and hurt frames; a VICTORY / DEFEAT card that a mashed Ⓐ can't skip (_legacy: '2026-10-07-tj') · ⚔ the knight tourneys from behind the knight: circle the champion in duels, roam the melee, his combo and Ground Pound, read the wind-up and parry; 🐎 the joust (its own contest and the Grand Tournament's first bout); no potions (_legacy: '2026-10-07-sc') · 🐎 the tourney's horse race is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
+const BUILD_TAG = '2026-10-09-pr';  // ⌨ a keyboard controls map (☰ System → ⌨ Keyboard Controls: every key shown, two per action, change any of them, saved per computer; a one-time hint names the potion key) · 🛡 five gear slots — weapon, shield, helm, breastplate, legs — each old suit split into its pieces and sold apart, Ⓐ to wear or take off; ✝ the Armor of God, one piece from each late chapel named for its general, all five worn: "Stand firm" · 🧪 potions and tonics (Greater Healing, the Elixir of Renewal, Might, Ironbark, Swiftfoot, Eagle-Eye) and Reuben's Murky Flask, a quick slot (☰ Items ★, or R on a keyboard); 🍶 Reuben the wandering merchant camps by a cleansed village and moves on, and the inns know where (_legacy: '2026-10-09-bf') · ⚖ every boss fought by a bot: a boss's point-blank burst now lands once (standing inside a boss took a whole bar in one frame, Abaddon too); the warded Pretender King mends half as fast and never more than a tenth past where his knights were called (_legacy: '2026-10-09-rf') · 🌱 the Root Fiend can be beaten: each root heals it far less, they come more slowly and three at most, and cutting one holds the next off (_legacy: '2026-10-08-hb') · 👑 boss health bars like the knight's: green → yellow → red, the numbers on the bar, a pale chunk after each blow, a shake (Abaddon, the Pretender ×2, the King of the Shadows) (_legacy: '2026-10-08-hp') · ❤ a clearer health bar: longer, green → yellow → red, the numbers under it, a pale chunk for what a blow took, a shake when struck, a pulse and a red screen edge when low; 🔤 the canvas labels and race captions a size up, the pixel font preloaded; Squire Matthew moves on with the story; Aldric says "my child" (_legacy: '2026-10-08-tx') · 🔤 the text pass: every overlay's text scales with the screen (and ☰ System → Text Size); 📜 the story in order: lines that came too soon or went stale now follow the story, Abaddon is not re-fought (or un-won by dying), the knighting and the wedding staged true, the wedding verse Ecclesiastes 4:12, the generals' pronouns, no shared names (_legacy: '2026-10-07-si') · 🛒🍺 the shops and inns made grand: five shop halls (general store, forge, fish market, capital market, bazaar) and a two-storey inn with each town's sign over the hearth, all painted whole; the phone copy now shortens local names, proven the same program by scope (_legacy: '2026-10-07-ks') · 🛏 the homestead indoors: the knight's suite (library, fireplace, four-poster, wardrobe glass) with a walkout balcony over the farm, made over for Madison after the wedding and her place on the balcony; the family hall, the children's floor and the barn painted whole; Madison redrawn (dirty-blonde hair, four facings); the Old Mule drawn as a mule; one Sir Aldric after the wedding (_legacy: '2026-10-07-ty') · 🏇 the Tilting Yard: Stormgate's lists on the meadow under the north wall — grandstand, tilt, pavilions, racks and banners; two new north gates down from the city; Stormgate's marshals at its rail (_legacy: '2026-10-07-tk') · ⚔ tourney clean-up: you ride the joust yourself and the calls fade up in the sky; the knight seen from behind, turned square to his man, with forehand, backhand, guard, Ground Pound and hurt frames; a VICTORY / DEFEAT card that a mashed Ⓐ can't skip (_legacy: '2026-10-07-tj') · ⚔ the knight tourneys from behind the knight: circle the champion in duels, roam the melee, his combo and Ground Pound, read the wind-up and parry; 🐎 the joust (its own contest and the Grand Tournament's first bout); no potions (_legacy: '2026-10-07-sc') · 🐎 the tourney's horse race is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
 
 // ── tiny Web Audio kit (game has no audio system yet; kept self-contained) ──
 let bootAC=null;
