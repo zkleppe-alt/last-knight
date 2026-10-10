@@ -20409,7 +20409,6 @@ function loop(ts){
   tickCross(dt);
   escortStep(dt);
   potTick(dt);   // 🧪 tonics and Murky Flask effects run down
-  chairTick(dt);   // 🔥 a rest by the fire runs its course
   // THE WORLD HOLDS STILL while a conversation is on screen, so you cannot be
   // killed while reading. The guard sits on the frame rather than in any one
   // place.kind branch: there are three separate demon updaters and a conversation
@@ -20520,7 +20519,7 @@ function loop(ts){
     saveGame();
   }
   let dx=0,dy=0;
-  const canMove = player.swing<=6 && !dialogue.open && !portalWarp && !skiff && !credits && !(place.kind==='abaddon' && abaddon.victory) && !player.restSit;   // 🔥 seated by the fire  // frozen during dialogue + victory beat + portal warp
+  const canMove = player.swing<=6 && !dialogue.open && !portalWarp && !skiff && !credits && !(place.kind==='abaddon' && abaddon.victory);  // frozen during dialogue + victory beat + portal warp
   if(canMove){
     // ⬡ EIGHT-WAY WALK: hold two directions and the knight moves diagonally. The
     //   old if/else chain allowed only one axis, which made every 45° stretch a
@@ -31205,7 +31204,6 @@ function _kShieldFwdOn(){ return !!player && (player.blocking || (player._blkT||
 const _kShieldArt=()=>{ const L=(typeof currentLivery==='function')?currentLivery():'azure', g=(typeof gloryArmor==='function')&&gloryArmor();
   if(L==='ranger') return { rim:'#5c6270', field:'#94623a', hi:'#b07a4a', cross:'#c0392e', crossD:'#8a241c' };
   if(g) return { rim:'#b8902a', field:'#fffdf4', hi:'#ffffff', cross:'#e8c45a', crossD:'#b8902a' };
-  { const s=(typeof gearLook==='function')&&gearLook().shield; if(s) return { rim:s.rim, field:s.field, hi:s.hi, cross:s.cross, crossD:s.crossD }; }   // 🛡 the shield he wears (2026-10-09-gl)
   return { rim:'#b8c0d0', field:'#e8ecf2', hi:'#ffffff', cross:'#e8b93a', crossD:'#b8902a' }; };
 function _kShieldFace(x,y){ const a=_kShieldArt(), P=(lx,ly,w,h,c)=>px(x+lx,y+ly,w,h,c);
   P(0,0,8,7,'#141c2e'); P(1,7,6,1,'#141c2e'); P(2,8,4,1,'#141c2e'); P(3,9,2,1,'#141c2e');
@@ -34736,14 +34734,6 @@ function drawKnightBody(x,y,dir,f,bob,mb,swinging,wpnId){
     }
   }
   if(typeof potFxOn==='function' && potFxOn('rainbow') && !beastForm()){ const rb=potRainbow(); PLUME=rb[0]; PLUME_HI=rb[1]; PLUME_D=rb[2]; }   // 🌈 a Murky Flask
-  // 🛡 GEAR YOU CAN SEE (2026-10-09-gl): the worn helm, breastplate, legs and shield recolour their parts. After the
-  //   livery (a livery's own helm still wins), before the Armour of God, the Champion's plate and the Ranger's shield.
-  if(typeof gearLook==='function' && !beastForm()){ const GL=gearLook(), LV=LIVERIES[currentLivery()]||{};
-    if(GL.helm && !(currentLivery()!=='azure' && LV.HELM)){ [HELM,HELM_HI,HELM_L,HELM_D]=GL.helm; }
-    if(GL.paul && !(currentLivery()!=='azure' && LV.HELM)){ [PAUL,PAUL_HI,PAUL_D]=GL.paul; }
-    if(GL.belt){ [BELT,BUCKLE]=GL.belt; }
-    if(GL.leg){ [LEG,LEG_D]=GL.leg; }
-    if(GL.shield){ const s=GL.shield; SHIELD=s.rim; SHIELD_D=s.dark; SHIELD_FIELD=s.field; STEEL_D=s.rim; CROSSG=s.cross; CROSSG_D=s.crossD; } }
   // ── THE ARMOUR OF GOD, WORN ── Michael's gift is the only EQUIPMENT in the
   // game that changes how the knight looks. It is applied AFTER the livery block
   // and overrides it wholesale: gold plate, white cape and plume, a gold-and-
@@ -39378,106 +39368,7 @@ const RW_AIM = { bow_samuel:(P,p,d)=>{ const gold='#e8c25a', glint='#fff7c8', tw
   P(0,4,1,1,gold); P(-1,5,1,2,p.B); P(-2,7,1,5,p.B); P(-1,12,1,2,p.B); P(0,14,1,1,gold); P(-2,8,1,2,p.H); P(0,5,1,9,p.ST); P(-2,9,2,1,p.G);
   P(-6,9,4,1,p.ST); P(-7,9,1,1,gold); P(-3-tw,9,1,1,glint); P(-8,8,1,1,glint); } };
 
-// ════════════════════════════════════════════════════════════════
-//  🛡 GEAR YOU CAN SEE, AND A SEAT BY THE FIRE (2026-10-09-gl)
-// ════════════════════════════════════════════════════════════════
-// Zak: "Let's do 3!" — the five gear slots show on the knight, lightly: the same sprite (his face never
-// shows, the original shapes stay), recoloured part by part. Helm → the helm. Breastplate → the shoulders
-// and belt. Legs → the legs. Shield → the shield's rim, field and cross (on his arm AND brought round on
-// guard). An empty slot leaves that part as it always was. Story liveries that recolour the same part
-// still win: a livery with its own helm (the Armour of God, Stormward, Fallen…), the Champion's plate and
-// the Ranger's shield.
-const GEAR_LOOK = {
-  // helms: HELM, HELM_HI, HELM_L, HELM_D
-  leather_cap: { helm:['#8a5a2c','#b07a44','#9a6a38','#5a3818'] },
-  chain_coif:  { helm:['#9aa0aa','#c8ccd4','#b0b6c0','#6a707c'] },
-  helm_deborah:{ helm:['#c08a3a','#f0c070','#d8a050','#8a5a20'] },
-  plate_helm:  { helm:['#dfe4ec','#ffffff','#eef1f6','#a8b0bc'] },
-  pal_helm:    { helm:['#eef1f6','#ffffff','#f6f8fb','#c8a850'] },
-  samuel_helm: { helm:['#e8c45a','#fff2b0','#f2d680','#a8842a'] },
-  // breastplates: PAUL, PAUL_HI, PAUL_D (+ belt, buckle)
-  leather:      { paul:['#8a5a2c','#b07a44','#5a3818'], belt:['#5a3818','#b07a44'] },
-  chainmail:    { paul:['#9aa0aa','#c8ccd4','#6a707c'] },
-  armor_miriam: { paul:['#c08a3a','#f0c070','#8a5a20'] },
-  cloak_josiah: { paul:['#5a6a4a','#7a8a64','#3a4632'], belt:['#3a4632','#c9a94a'] },
-  platemail:    { paul:['#dfe4ec','#ffffff','#a8b0bc'] },
-  armorofgod:   { paul:['#eef1f6','#ffffff','#c8a850'], belt:['#c8a850','#fff2b0'] },
-  armor_michael:{ paul:['#e8c45a','#fff2b0','#a8842a'], belt:['#fff2b0','#ffffff'] },
-  // legs: LEG, LEG_D
-  leather_legs: { leg:['#6a4424','#4a2e16'] },
-  chain_legs:   { leg:['#8a909a','#5e646e'] },
-  plate_legs:   { leg:['#c8ced8','#9aa2ae'] },
-  pal_legs:     { leg:['#dfe4ec','#b8a060'] },
-  lydia_greaves:{ leg:['#d8b450','#a8842a'] },
-  // shields: rim, field, hi, cross, crossD (the Kite Shield is the knight's own: no change)
-  buckler:    { shield:{ rim:'#5a3a1e', field:'#8a5a2c', hi:'#b07a44', cross:'#c8a060', crossD:'#8a6a30', dark:'#3a2410' } },
-  tower:      { shield:{ rim:'#7a808c', field:'#aab2c0', hi:'#d8dce4', cross:'#3b6fd4', crossD:'#2a52aa', dark:'#5a606c' } },
-  pal_shield: { shield:{ rim:'#c8a850', field:'#f4f6fa', hi:'#ffffff', cross:'#3b6fd4', crossD:'#2a52aa', dark:'#a8842a' } },
-  shield_ruth:{ shield:{ rim:'#b8902a', field:'#fffdf4', hi:'#ffffff', cross:'#e8c45a', crossD:'#b8902a', dark:'#8a6a20' } },
-};
-// what the knight is wearing that shows, part by part (null where nothing changes)
-function gearLook(){
-  const q=(player && player.equip)||{}, out={};
-  for(const s of ['helm','body','legs','shield']){ const L=GEAR_LOOK[q[s]]; if(!L) continue;
-    if(L.helm) out.helm=L.helm; if(L.paul) out.paul=L.paul; if(L.belt) out.belt=L.belt; if(L.leg) out.leg=L.leg; if(L.shield) out.shield=L.shield; }
-  return out;
-}
-// (the shield brought round on guard, and seen side-on, wears the same colours: see _kShieldArt)
-
-// ── 🔥 THE SEAT BY THE FIRE ── players asked that "when you rest on the chair before battling the dungeon bosses,
-//    your character actually sits and can't walk around until the rest is over". Ⓐ at the chair: he sits down in
-//    it, facing you, and his strength comes back over a few seconds while the fire crackles; he cannot walk, swing,
-//    guard or drink until he rises on his own, beside the chair where he stood. (_legacy restInChair: full HP at
-//    once, a libSit flag nothing read, and "Ⓐ to rise".)
-const CHAIR_REST_MS = 3500;
-function restSitting(){ return !!(player && player.restSit); }
-restInChair=function(){
-  if(player.restSit) return true;                                   // already seated: Ⓐ does nothing until he rises
-  const [fx,fy]=facingTile();
-  player.restSit={ t0:performance.now(), el:0, hp0:player.hp, cx:fx, cy:fy, dir0:player.dir, floor:dungeon.floorIdx };
-  player.libSit=null;
-  dungeon.checkpoint={ townId:dungeon.townId, floorIdx:dungeon.floorIdx };
-  held.up=held.down=held.left=held.right=false; player.blocking=false; player.swing=0;
-  showBanner('🔥 <b>You sink into the chair by the fire.</b><br><span style="font-size:calc(7px*var(--tx,1))">Rest a while. Your strength returns, and you fix this place in mind — should you fall below, you will wake here.</span>', 3000);
-  return true;
-};
-// runs once a frame from loop(): the rest runs its course, then he stands
-function chairTick(dt){
-  const R=player.restSit; if(!R) return;
-  if(place.kind!=='dungeon' || dungeon.floorIdx!==R.floor){ player.restSit=null; return; }   // carried off somehow: never stuck sitting
-  R.el+=dt;
-  const u=Math.min(1, R.el/CHAIR_REST_MS);
-  player.hp=Math.max(player.hp, Math.round(R.hp0+(player.maxHp-R.hp0)*u));
-  held.up=held.down=held.left=held.right=false;
-  if(u>=1){ player.hp=player.maxHp; player.restSit=null; player.dir=R.dir0; saveGame();
-    showBanner('🙏 <b>You rise, restored.</b><br><span style="font-size:calc(7px*var(--tx,1))">Strength for the road below.</span>', 1800); }
-}
-// no swinging, guarding, dodging or drinking from the chair
-(function(){
-  const _atk=doAttack; doAttack=function(){ if(restSitting()) return; return _atk.apply(this, arguments); };
-  const _bd=bDown; bDown=function(){ if(restSitting()) return; return _bd.apply(this, arguments); };
-  const _qp=quickPotion; quickPotion=function(){ if(restSitting()) return; return _qp.apply(this, arguments); };
-})();
-// drawn seated in the chair: his body sunk onto the cushion, his legs bent over the seat's edge, the chair's
-// arms in front of him. He faces you, whichever way he walked up.
-(function(){ const _dk=drawKnight;
-  drawKnight=function(x,y){
-    const R=player.restSit; if(!R || place.kind!=='dungeon') return _dk.apply(this, arguments);
-    const sx=x+(R.cx*TILE-player.x), sy=y+(R.cy*TILE-player.y);      // the chair, on screen
-    const was=player.dir, wasMv=player.moving; player.dir='down'; player.moving=false;
-    ctx.save(); ctx.beginPath(); ctx.rect(sx-8, sy-12, 32, 21); ctx.clip();   // his top half: the legs are drawn bent, below
-    try{ _dk.call(this, sx, sy-1); } finally{ ctx.restore(); player.dir=was; player.moving=wasMv; }
-    const g=gearLook(), L=LIVERIES[currentLivery()]||{};
-    const LEG=(g.leg&&g.leg[0])||(currentLivery()!=='azure'&&L.LEG)||'#2a4a8a', LEG_D=(g.leg&&g.leg[1])||(currentLivery()!=='azure'&&L.LEG_D)||'#1f3a70';
-    px(sx+4,sy+9,3,2,LEG); px(sx+9,sy+9,3,2,LEG); px(sx+4,sy+9,1,2,LEG_D); px(sx+9,sy+9,1,2,LEG_D);   // knees over the seat
-    px(sx+4,sy+11,3,2,LEG); px(sx+9,sy+11,3,2,LEG); px(sx+4,sy+13,3,1,'#141c2e'); px(sx+9,sy+13,3,1,'#141c2e');   // shins and boots
-    px(sx+1,sy+8,2,4,'#5c2f2f'); px(sx+13,sy+8,2,4,'#5c2f2f'); px(sx+1,sy+8,2,1,'#7d4242'); px(sx+13,sy+8,2,1,'#7d4242');   // the chair's arms, in front of him
-    const u=Math.min(1,R.el/CHAIR_REST_MS), tw=((performance.now()/220)|0)%3;   // warmth rising off him as he rests
-    ctx.save(); ctx.globalAlpha=0.55*(1-u*0.5); px(sx+2+tw*4, sy-6-((R.el/120)|0)%5, 1, 1, '#ffd870'); px(sx+12-tw*3, sy-3-((R.el/160)|0)%5, 1, 1, '#fff2c0'); ctx.restore();
-  };
-})();
-
-const BUILD_TAG = '2026-10-09-gl';  // 🛡 worn gear shows on the knight, his own sprite recoloured part by part: the helm, the shoulders and belt (breastplate), the legs and the shield (on his arm and brought round on guard); story liveries still win · 🔥 the seat by the fire: he sits in the chapel library's chair, facing you, his strength coming back over 3½ seconds, and cannot walk, swing, guard or drink until he rises on his own (_legacy: '2026-10-09-rw') · 🏹 ranged weapons in the weapon slot, unlimited shots: the Shepherd's Sling (village shops), the Hunting Bow (Thornwood), the Throwing Axes (Dusthaven, thrown hard), the Crossbow (Ashfield and Hellgate, a bolt through three); each held in his left hand at rest and as he looses; the Prophetic Bow now draws like the hunting bow, gold-tipped, its arrows gold and trailing light (_legacy: '2026-10-09-ch') · 📦 set chapel chests: no more dice — every chest holds what its chapel's table says: the Short Sword in Hearthvale's first chest, Healing Potions (and later Reuben's brews) in every chapel, a piece of armour for each tier, and more gold the deeper you go (_legacy: '2026-10-09-pr') · ⌨ a keyboard controls map (☰ System → ⌨ Keyboard Controls: every key shown, two per action, change any of them, saved per computer; a one-time hint names the potion key) · 🛡 five gear slots — weapon, shield, helm, breastplate, legs — each old suit split into its pieces and sold apart, Ⓐ to wear or take off; ✝ the Armor of God, one piece from each late chapel named for its general, all five worn: "Stand firm" · 🧪 potions and tonics (Greater Healing, the Elixir of Renewal, Might, Ironbark, Swiftfoot, Eagle-Eye) and Reuben's Murky Flask, a quick slot (☰ Items ★, or R on a keyboard); 🍶 Reuben the wandering merchant camps by a cleansed village and moves on, and the inns know where (_legacy: '2026-10-09-bf') · ⚖ every boss fought by a bot: a boss's point-blank burst now lands once (standing inside a boss took a whole bar in one frame, Abaddon too); the warded Pretender King mends half as fast and never more than a tenth past where his knights were called (_legacy: '2026-10-09-rf') · 🌱 the Root Fiend can be beaten: each root heals it far less, they come more slowly and three at most, and cutting one holds the next off (_legacy: '2026-10-08-hb') · 👑 boss health bars like the knight's: green → yellow → red, the numbers on the bar, a pale chunk after each blow, a shake (Abaddon, the Pretender ×2, the King of the Shadows) (_legacy: '2026-10-08-hp') · ❤ a clearer health bar: longer, green → yellow → red, the numbers under it, a pale chunk for what a blow took, a shake when struck, a pulse and a red screen edge when low; 🔤 the canvas labels and race captions a size up, the pixel font preloaded; Squire Matthew moves on with the story; Aldric says "my child" (_legacy: '2026-10-08-tx') · 🔤 the text pass: every overlay's text scales with the screen (and ☰ System → Text Size); 📜 the story in order: lines that came too soon or went stale now follow the story, Abaddon is not re-fought (or un-won by dying), the knighting and the wedding staged true, the wedding verse Ecclesiastes 4:12, the generals' pronouns, no shared names (_legacy: '2026-10-07-si') · 🛒🍺 the shops and inns made grand: five shop halls (general store, forge, fish market, capital market, bazaar) and a two-storey inn with each town's sign over the hearth, all painted whole; the phone copy now shortens local names, proven the same program by scope (_legacy: '2026-10-07-ks') · 🛏 the homestead indoors: the knight's suite (library, fireplace, four-poster, wardrobe glass) with a walkout balcony over the farm, made over for Madison after the wedding and her place on the balcony; the family hall, the children's floor and the barn painted whole; Madison redrawn (dirty-blonde hair, four facings); the Old Mule drawn as a mule; one Sir Aldric after the wedding (_legacy: '2026-10-07-ty') · 🏇 the Tilting Yard: Stormgate's lists on the meadow under the north wall — grandstand, tilt, pavilions, racks and banners; two new north gates down from the city; Stormgate's marshals at its rail (_legacy: '2026-10-07-tk') · ⚔ tourney clean-up: you ride the joust yourself and the calls fade up in the sky; the knight seen from behind, turned square to his man, with forehand, backhand, guard, Ground Pound and hurt frames; a VICTORY / DEFEAT card that a mashed Ⓐ can't skip (_legacy: '2026-10-07-tj') · ⚔ the knight tourneys from behind the knight: circle the champion in duels, roam the melee, his combo and Ground Pound, read the wind-up and parry; 🐎 the joust (its own contest and the Grand Tournament's first bout); no potions (_legacy: '2026-10-07-sc') · 🐎 the tourney's horse race is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
+const BUILD_TAG = '2026-10-09-rw';  // 🏹 ranged weapons in the weapon slot, unlimited shots: the Shepherd's Sling (village shops), the Hunting Bow (Thornwood), the Throwing Axes (Dusthaven, thrown hard), the Crossbow (Ashfield and Hellgate, a bolt through three); each held in his left hand at rest and as he looses; the Prophetic Bow now draws like the hunting bow, gold-tipped, its arrows gold and trailing light (_legacy: '2026-10-09-ch') · 📦 set chapel chests: no more dice — every chest holds what its chapel's table says: the Short Sword in Hearthvale's first chest, Healing Potions (and later Reuben's brews) in every chapel, a piece of armour for each tier, and more gold the deeper you go (_legacy: '2026-10-09-pr') · ⌨ a keyboard controls map (☰ System → ⌨ Keyboard Controls: every key shown, two per action, change any of them, saved per computer; a one-time hint names the potion key) · 🛡 five gear slots — weapon, shield, helm, breastplate, legs — each old suit split into its pieces and sold apart, Ⓐ to wear or take off; ✝ the Armor of God, one piece from each late chapel named for its general, all five worn: "Stand firm" · 🧪 potions and tonics (Greater Healing, the Elixir of Renewal, Might, Ironbark, Swiftfoot, Eagle-Eye) and Reuben's Murky Flask, a quick slot (☰ Items ★, or R on a keyboard); 🍶 Reuben the wandering merchant camps by a cleansed village and moves on, and the inns know where (_legacy: '2026-10-09-bf') · ⚖ every boss fought by a bot: a boss's point-blank burst now lands once (standing inside a boss took a whole bar in one frame, Abaddon too); the warded Pretender King mends half as fast and never more than a tenth past where his knights were called (_legacy: '2026-10-09-rf') · 🌱 the Root Fiend can be beaten: each root heals it far less, they come more slowly and three at most, and cutting one holds the next off (_legacy: '2026-10-08-hb') · 👑 boss health bars like the knight's: green → yellow → red, the numbers on the bar, a pale chunk after each blow, a shake (Abaddon, the Pretender ×2, the King of the Shadows) (_legacy: '2026-10-08-hp') · ❤ a clearer health bar: longer, green → yellow → red, the numbers under it, a pale chunk for what a blow took, a shake when struck, a pulse and a red screen edge when low; 🔤 the canvas labels and race captions a size up, the pixel font preloaded; Squire Matthew moves on with the story; Aldric says "my child" (_legacy: '2026-10-08-tx') · 🔤 the text pass: every overlay's text scales with the screen (and ☰ System → Text Size); 📜 the story in order: lines that came too soon or went stale now follow the story, Abaddon is not re-fought (or un-won by dying), the knighting and the wedding staged true, the wedding verse Ecclesiastes 4:12, the generals' pronouns, no shared names (_legacy: '2026-10-07-si') · 🛒🍺 the shops and inns made grand: five shop halls (general store, forge, fish market, capital market, bazaar) and a two-storey inn with each town's sign over the hearth, all painted whole; the phone copy now shortens local names, proven the same program by scope (_legacy: '2026-10-07-ks') · 🛏 the homestead indoors: the knight's suite (library, fireplace, four-poster, wardrobe glass) with a walkout balcony over the farm, made over for Madison after the wedding and her place on the balcony; the family hall, the children's floor and the barn painted whole; Madison redrawn (dirty-blonde hair, four facings); the Old Mule drawn as a mule; one Sir Aldric after the wedding (_legacy: '2026-10-07-ty') · 🏇 the Tilting Yard: Stormgate's lists on the meadow under the north wall — grandstand, tilt, pavilions, racks and banners; two new north gates down from the city; Stormgate's marshals at its rail (_legacy: '2026-10-07-tk') · ⚔ tourney clean-up: you ride the joust yourself and the calls fade up in the sky; the knight seen from behind, turned square to his man, with forehand, backhand, guard, Ground Pound and hurt frames; a VICTORY / DEFEAT card that a mashed Ⓐ can't skip (_legacy: '2026-10-07-tj') · ⚔ the knight tourneys from behind the knight: circle the champion in duels, roam the melee, his combo and Ground Pound, read the wind-up and parry; 🐎 the joust (its own contest and the Grand Tournament's first bout); no potions (_legacy: '2026-10-07-sc') · 🐎 the tourney's horse race is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
 
 // ── tiny Web Audio kit (game has no audio system yet; kept self-contained) ──
 let bootAC=null;
