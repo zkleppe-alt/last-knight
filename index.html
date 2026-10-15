@@ -5929,9 +5929,12 @@ const FLOCK_N=5;
 // that does not come through the people.
 const CHARGE_STRIKES=3;           // strikes granted by one intercepted bolt
 const CHARGE_MS=6200;             // and they lapse after this
-const BOLT_FUSE=150;              // frames of warning before a strike lands
-const BOLT_EVERY=280;             // frames between strikes, at full flock
-const BOLT_EVERY_MIN=170;         // and at an empty one
+// 2026-10-13 (Zak: it "kills the people too fast"): _legacy BOLT_FUSE=150, BOLT_EVERY=280, BOLT_EVERY_MIN=170. The
+//   real killer was the knight's own sword (fixed in resolveSwing); the fuse is also lengthened by a second for a
+//   thumb on a phone's joystick, and the strikes come a little less often.
+const BOLT_FUSE=210;              // frames of warning before a strike lands (~3.5 s)
+const BOLT_EVERY=330;             // frames between strikes, at full flock
+const BOLT_EVERY_MIN=220;         // and at an empty one
 const PYRE_FUSE=44;               // frames from your swing to the fire
 const PYRE_BURN=26;               // frames it stays dangerous
 const ZEAL_DECAY=0.016;           // per frame
@@ -6510,6 +6513,39 @@ function genMazeFloor(townId, floorIdx){
       if(d<bestD && d>=1){ bestD=d; tab=[x,y]; }
     }
     if(tab) g[tab[1]][tab[0]]=T_TABLET;
+  }
+  // ── REJOIN (2026-10-13-mz) ── Zak: "some of the mazes for chapel Dungeons may be impassable". They were:
+  //    Hellgate's first maze, on every visit (its seed is fixed), had its upper half — the climbs, the walkway and
+  //    the stair — cut off from the entrance once the plaza was carved through the corridors, and the sweep below
+  //    then quietly deleted the stranded chests and demons. So before the sweep: while any open cell of the maze
+  //    body can't be walked to from the door, cut the shortest way to it through the fewest walls. Never through
+  //    the border, the walkway and its ceiling (rows 0-2: the stone must stay the only way to the stair), or the
+  //    plaza's walls (its steps stay the only way in). A floor that was whole already is left exactly as it was.
+  {
+    const PZ=dungeon._plaza, guard=(x,y)=> y<3 || x<1 || y>=MAZE_H-1 || x>=MAZE_W-1 ||
+      (PZ && x>=PZ.x0 && x<=PZ.x1 && y>=PZ.y0 && y<=PZ.y1);
+    const solid=(t)=>t===1||t===5||t===T_SEAL||t===T_CANDLE||t===T_TABLET||t===T_VERSE||t===T_FALSEWALL;   // a chest is in the way too
+    for(let pass=0; pass<40; pass++){
+      const seen=new Set([ex+','+ey]), st=[[ex,ey]];
+      while(st.length){ const [x,y]=st.pop();
+        for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nx=x+dx, ny=y+dy, k=nx+','+ny;
+          if(nx<1||ny<1||nx>=MAZE_W-1||ny>=MAZE_H-1||seen.has(k)||solid(g[ny][nx])) continue; seen.add(k); st.push([nx,ny]); } }
+      let lost=false;
+      for(let y=3;y<MAZE_H-1 && !lost;y++) for(let x=1;x<MAZE_W-1;x++) if(!solid(g[y][x]) && !seen.has(x+','+y)){ lost=true; break; }
+      if(!lost) break;
+      // 0-1 search out from everything reachable: open cells cost nothing, a wall we may cut costs one
+      const cost={}, prev={}, dq=[]; for(const k of seen){ cost[k]=0; dq.push(k); }
+      let hit=null;
+      while(dq.length){ const k=dq.shift(); const [x,y]=k.split(',').map(Number);
+        if(!seen.has(k) && !solid(g[y][x])){ hit=k; break; }
+        for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nx=x+dx, ny=y+dy, nk=nx+','+ny;
+          if(nx<1||ny<1||nx>=MAZE_W-1||ny>=MAZE_H-1) continue;
+          const t=g[ny][nx], c=solid(t) ? (t===1 && !guard(nx,ny) ? 1 : 999) : 0;
+          if(c===999) continue; const nc=cost[k]+c;
+          if(cost[nk]===undefined || nc<cost[nk]){ cost[nk]=nc; prev[nk]=k; if(c===0) dq.unshift(nk); else dq.push(nk); } } }
+      if(!hit) break;
+      for(let k=hit; k && !seen.has(k); k=prev[k]){ const [x,y]=k.split(',').map(Number); if(g[y][x]===1) g[y][x]=0; }
+    }
   }
   // ── FINAL SWEEP ── The furniture goes down last, and a candle or a verse-stone
   //    can still cut off a pocket the placement checks did not foresee. Anything
@@ -14607,7 +14643,8 @@ document.getElementById('gamemenu').addEventListener('click', e=>{
     const wares=tgt.closest&&tgt.closest('[data-libwares]');
     if(wares){ librarySelect(); return; } }
   // ── LIBRARY shop: tap a ware ──
-  if(libShop){ const w=tgt.closest&&tgt.closest('[data-libitem]'); if(w){ libShop.cursor=+w.dataset.libitem; renderLibrary(); libShopBuy(); return; } }
+  // _legacy: libShop.cursor=…; renderLibrary(); libShopBuy(); — set a field nothing reads, and the rows carried no data-libitem anyway
+  if(libShop){ const w=tgt.closest&&tgt.closest('[data-libitem]'); if(w){ const i=+w.dataset.libitem; if(i===libShop.idx) libShopBuy(); else { libShop.idx=i; renderLibShop(); } return; } }   // tap to choose, tap again to buy (like the village shop)
 });
 document.getElementById('mountBtn').addEventListener('click', toggleMount);
 document.getElementById('wagonBtn').addEventListener('click', toggleDriving);
@@ -16236,12 +16273,12 @@ let libShop=null;
 function renderLibShop(msg){
   const id=libShop.items[libShop.idx]; const e=EQUIP[id]; const price=LIBRARY_PRICE[id]||100;
   const list=libShop.items.map((k,i)=>{ const it=EQUIP[k]; const sel=i===libShop.idx; const pr=LIBRARY_PRICE[k]||100;
-    return `<div class="gm-item ${sel?'cur':''}">${it.emoji} <span style="flex:1">${it.name} <span class="ds">${it.slot==='weapon'?`[${it.type}] +${it.atk} atk`:`+${it.def} def`}</span></span><span style="color:#ffe04a">${pr}g</span></div>`; }).join('');
+    return `<div class="gm-item ${sel?'cur':''}" data-libitem="${i}">${it.emoji} <span style="flex:1;pointer-events:none">${it.name} <span class="ds">${it.slot==='weapon'?`[${it.type}] +${it.atk} atk`:`+${it.def} def`}</span></span><span style="color:#ffe04a;pointer-events:none">${pr}g</span></div>`; }).join('');   // data-libitem: the rows had none, so a tap found nothing (Zak, 2026-10-09: "Library wares won't let me select them on the phone")
   let html=`<div class="gm-close" data-close="1">✕</div><div class="gm-tabs"><div class="gm-tab sel">📜 Library Wares</div></div><div class="gm-body">`;
   html+=`<div class="gm-stat"><span>🪙 Your gold</span><b>${gold}</b></div>`;
   if(msg) html+=`<div style="font-size:calc(7px*var(--tx,1));color:#6fdf8a;margin:4px;text-align:center">${msg}</div>`;
   html+=list;
-  html+=`<div class="gm-hint">▲▼ choose · Ⓐ buy (${price}g) · Ⓑ back to study</div></div>`;
+  html+=`<div class="gm-hint">▲▼ or tap to choose · Ⓐ or tap again to buy (${price}g) · Ⓑ back to study</div></div>`;
   document.getElementById('gamemenu').innerHTML=html;
 }
 function libShopMove(dy){ if(!libShop) return; const n=libShop.items.length; libShop.idx=(libShop.idx+dy+n)%n; renderLibShop(); }
@@ -16311,6 +16348,10 @@ function loadDungeonFloor(idx, returning){
     for(let y=0;y<DH;y++)for(let x=0;x<DW;x++) if(dungeon.grid[y][x]===T_SEAL) dungeon.grid[y][x]=0;
   }
   dungeon.projectiles=[]; dungeon.adds=[];
+  // 🛡 Stormgate: the adds were just cleared, so Ruth's people must come back with the hall. _legacy: _flockInit was
+  //   set once and never reset — after a fall (or any way out and back in) the hall stood empty, no bolt was ever
+  //   called again, the blade could never be charged, and the Thunder Lord could not be beaten (2026-10-13).
+  dungeon._flockInit=false; dungeon._bolt=null; dungeon._boltT=0;
   // spawn demons on tile-6 cells (unless already cleared this run), then OPEN the
   // cell — maze demons WANDER the corridors rather than standing as solid blocks.
   demons = [];
@@ -16753,7 +16794,11 @@ function stormTick(){
     dungeon._boltT=(dungeon._boltT||0)+1;
     if(dungeon._boltT<every) return;
     dungeon._boltT=0;
-    if(!flock.length) return;                        // nobody left to strike at
+    // _legacy: `if(!flock.length) return;` — with nobody left there was never another bolt, so never another charge,
+    //   and an uncharged blade cannot touch the Thunder Lord: losing all five soft-locked the fight. Now, with nobody
+    //   left, it comes for the knight himself; he takes it (on the shield, if he is wise) and the charge still comes.
+    if(!flock.length){ dungeon._bolt={ target:null, self:true, t:BOLT_FUSE };
+      showBanner('⚡ <b>With nobody left, it comes for you.</b><br><span style="font-size:calc(7px*var(--tx,1))">Raise your shield and take it.</span>', 1500); return; }
     const mark=flock[Math.floor(Math.random()*flock.length)];
     dungeon._bolt={ target:mark, t:BOLT_FUSE };
     showBanner('⚡ <b>It picks one of them out.</b><br><span style="font-size:calc(7px*var(--tx,1))">Get over them.</span>', 1500);
@@ -16763,9 +16808,9 @@ function stormTick(){
   if(b.t>0) return;
   const m=b.target;
   dungeon._bolt=null;
-  if(!m || !m.alive) return;
-  // Are you standing over them?
-  const kd=Math.hypot((player.x+TILE/2)-(m.x+TILE/2),(player.y+TILE/2)-(m.y+TILE/2));
+  if(!b.self && (!m || !m.alive)) return;
+  // Are you standing over them? (a bolt called on the knight himself always finds him)
+  const kd=b.self ? 0 : Math.hypot((player.x+TILE/2)-(m.x+TILE/2),(player.y+TILE/2)-(m.y+TILE/2));
   if(kd<=TILE*1.2){
     const tl=TOWN_DATA[dungeon.townId].lvl;
     // NOT hurtFromBoss(): that is a closure local of the demons update.
@@ -17088,8 +17133,9 @@ function drawHell(camX, camY){
 }
 function drawStorm(camX, camY){
   const b=dungeon._bolt;
-  if(b && b.target && b.target.alive){
-    const m=b.target;
+  const _tg = b && (b.self ? { x:player.x, y:player.y, alive:true } : b.target);   // a bolt called on the knight rings him
+  if(b && _tg && _tg.alive){
+    const m=_tg;
     const cx=(m.x-camX)+TILE/2, cy=(m.y-camY)+TILE/2;
     const k=1-(b.t/BOLT_FUSE);
     ctx.strokeStyle='rgba(255,214,90,'+(0.4+0.5*k).toFixed(2)+')';
@@ -17457,7 +17503,8 @@ const CHAPEL_CHESTS = {
        [FLOOR.maze2]:[ [['gear','pal_helm']], [['pot','eagleTonic',1],['pot','murky',2]] ],              [FLOOR.sanctum]:[ [['gold',280]] ] },
   8: { [FLOOR.maze]:[ [['gear','pal_legs']], [['pot','greaterPotion',2],['pot','ironTonic',1]] ],
        [FLOOR.maze2]:[ [['gear','pal_shield']], [['pot','elixir',1],['pot','mightTonic',1]] ],           [FLOOR.sanctum]:[ [['gold',340]] ] },
-  9: { /* Hellgate has no first maze */ [FLOOR.maze2]:[ [['gear','armorofgod'],['gold',150]], [['pot','elixir',2],['pot','greaterPotion',2]] ],         [FLOOR.sanctum]:[ [['gold',420]] ] },
+  9: { [FLOOR.maze]:[ [['gold',100],['pot','greaterPotion',1]] ],   // (its maze was cut in two until 2026-10-13: the chest it holds was swept away)
+       [FLOOR.maze2]:[ [['gear','armorofgod'],['gold',150]], [['pot','elixir',2],['pot','greaterPotion',2]] ],         [FLOOR.sanctum]:[ [['gold',420]] ] },
 };
 const FOREST_CHEST = [['gold',50],['pot','potion',1]];   // the Forest of Disillusionment's chests, all alike
 // which chest this is on its floor (reading order), or -1
@@ -19090,6 +19137,13 @@ function checkTransitions(){
     if(t===9){
       // the old man is quick about it, but he does finish
       if(place.id==='tobias' && !tutorial.done){
+        // _legacy: only the line, with the knight left standing ON the door. Closing it, the very next frame found him
+        //   on the door again and said it again — every frame, forever, with movement frozen under the dialogue. Players
+        //   "keep getting stuck in doorways — especially the intro" (Zak, 2026-10-14). Step him back into the room first.
+        const [dx0,dy0]=pkey().split(',').map(Number);
+        const back=[[dx0,dy0-1],[dx0-1,dy0],[dx0+1,dy0],[dx0,dy0+1]].find(([x,y])=>walkable(x,y) && tileAt(x,y)!==9);
+        if(back){ player.x=back[0]*TILE; player.y=back[1]*TILE; }
+        player.dir='up'; held.up=held.down=held.left=held.right=false;
         sayAs('Tobias', ['Not yet. Come here and let me finish — it won\'t take long, and it may keep you alive.']);
         return true;
       }
@@ -19914,7 +19968,11 @@ function resolveSwing(type){
   // Ethan, if he is laying into you
   if(place.kind==='overworld' && rgStrikeEthan(kcx,kcy,fv,reach,cosCut)){ anyHit=true; _swingHit=true; }
   // also strike boss-summoned adds
-  if(place.kind==='dungeon' && dungeon.adds.length){ dungeon.adds.forEach(a=>{ if(!a.alive)return;
+  // _legacy: no flock guard here — Ruth's people have 1 HP and drift about the hall, so an ordinary swing at the
+  //   Thunder Lord cut down whoever stood beside him, silently and uncounted (the Ground Pound always skipped them).
+  //   Zak, 2026-10-13: the boss "kills the people too fast". A bot that fights and runs to every bolt saved every
+  //   bolt — and lost all five to its own sword inside a minute. They are never targets.
+  if(place.kind==='dungeon' && dungeon.adds.length){ dungeon.adds.forEach(a=>{ if(!a.alive || a.flock)return;
     const acx=a.x+TILE/2, acy=a.y+TILE/2; let vx=acx-kcx, vy=acy-kcy; const dist=Math.hypot(vx,vy);
     if(dist>reach) return; if(dist>0.001){ const dot=(vx*fv[0]+vy*fv[1])/dist; if(dot<cosCut) return; }
     if(!swingLOS(kcx,kcy,acx,acy)) return;
@@ -39477,7 +39535,7 @@ function chairTick(dt){
   };
 })();
 
-const BUILD_TAG = '2026-10-09-gl';  // 🛡 worn gear shows on the knight, his own sprite recoloured part by part: the helm, the shoulders and belt (breastplate), the legs and the shield (on his arm and brought round on guard); story liveries still win · 🔥 the seat by the fire: he sits in the chapel library's chair, facing you, his strength coming back over 3½ seconds, and cannot walk, swing, guard or drink until he rises on his own (_legacy: '2026-10-09-rw') · 🏹 ranged weapons in the weapon slot, unlimited shots: the Shepherd's Sling (village shops), the Hunting Bow (Thornwood), the Throwing Axes (Dusthaven, thrown hard), the Crossbow (Ashfield and Hellgate, a bolt through three); each held in his left hand at rest and as he looses; the Prophetic Bow now draws like the hunting bow, gold-tipped, its arrows gold and trailing light (_legacy: '2026-10-09-ch') · 📦 set chapel chests: no more dice — every chest holds what its chapel's table says: the Short Sword in Hearthvale's first chest, Healing Potions (and later Reuben's brews) in every chapel, a piece of armour for each tier, and more gold the deeper you go (_legacy: '2026-10-09-pr') · ⌨ a keyboard controls map (☰ System → ⌨ Keyboard Controls: every key shown, two per action, change any of them, saved per computer; a one-time hint names the potion key) · 🛡 five gear slots — weapon, shield, helm, breastplate, legs — each old suit split into its pieces and sold apart, Ⓐ to wear or take off; ✝ the Armor of God, one piece from each late chapel named for its general, all five worn: "Stand firm" · 🧪 potions and tonics (Greater Healing, the Elixir of Renewal, Might, Ironbark, Swiftfoot, Eagle-Eye) and Reuben's Murky Flask, a quick slot (☰ Items ★, or R on a keyboard); 🍶 Reuben the wandering merchant camps by a cleansed village and moves on, and the inns know where (_legacy: '2026-10-09-bf') · ⚖ every boss fought by a bot: a boss's point-blank burst now lands once (standing inside a boss took a whole bar in one frame, Abaddon too); the warded Pretender King mends half as fast and never more than a tenth past where his knights were called (_legacy: '2026-10-09-rf') · 🌱 the Root Fiend can be beaten: each root heals it far less, they come more slowly and three at most, and cutting one holds the next off (_legacy: '2026-10-08-hb') · 👑 boss health bars like the knight's: green → yellow → red, the numbers on the bar, a pale chunk after each blow, a shake (Abaddon, the Pretender ×2, the King of the Shadows) (_legacy: '2026-10-08-hp') · ❤ a clearer health bar: longer, green → yellow → red, the numbers under it, a pale chunk for what a blow took, a shake when struck, a pulse and a red screen edge when low; 🔤 the canvas labels and race captions a size up, the pixel font preloaded; Squire Matthew moves on with the story; Aldric says "my child" (_legacy: '2026-10-08-tx') · 🔤 the text pass: every overlay's text scales with the screen (and ☰ System → Text Size); 📜 the story in order: lines that came too soon or went stale now follow the story, Abaddon is not re-fought (or un-won by dying), the knighting and the wedding staged true, the wedding verse Ecclesiastes 4:12, the generals' pronouns, no shared names (_legacy: '2026-10-07-si') · 🛒🍺 the shops and inns made grand: five shop halls (general store, forge, fish market, capital market, bazaar) and a two-storey inn with each town's sign over the hearth, all painted whole; the phone copy now shortens local names, proven the same program by scope (_legacy: '2026-10-07-ks') · 🛏 the homestead indoors: the knight's suite (library, fireplace, four-poster, wardrobe glass) with a walkout balcony over the farm, made over for Madison after the wedding and her place on the balcony; the family hall, the children's floor and the barn painted whole; Madison redrawn (dirty-blonde hair, four facings); the Old Mule drawn as a mule; one Sir Aldric after the wedding (_legacy: '2026-10-07-ty') · 🏇 the Tilting Yard: Stormgate's lists on the meadow under the north wall — grandstand, tilt, pavilions, racks and banners; two new north gates down from the city; Stormgate's marshals at its rail (_legacy: '2026-10-07-tk') · ⚔ tourney clean-up: you ride the joust yourself and the calls fade up in the sky; the knight seen from behind, turned square to his man, with forehand, backhand, guard, Ground Pound and hurt frames; a VICTORY / DEFEAT card that a mashed Ⓐ can't skip (_legacy: '2026-10-07-tj') · ⚔ the knight tourneys from behind the knight: circle the champion in duels, roam the melee, his combo and Ground Pound, read the wind-up and parry; 🐎 the joust (its own contest and the Grand Tournament's first bout); no potions (_legacy: '2026-10-07-sc') · 🐎 the tourney's horse race is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
+const BUILD_TAG = '2026-10-14-dr';  // 🚪 no more stuck in Tobias's doorway: walking out before the lessons steps you back into the room before he calls you back (it used to repeat every frame while you stood on the door) (_legacy: '2026-10-13-mz') · 🧭 every chapel maze can be walked: Hellgate's first maze was cut in two on every visit (its stair out of reach), and small pockets were sealed off in Ironhold, Crystalpeak and Stormgate — the cut-off parts are joined back through the fewest walls · ⚡ Ruth's hall: your own sword no longer cuts down her people, they come back with the hall after a fall, with none left the bolts come for you so the blade can still be charged, and a second more warning before each strike (_legacy: '2026-10-09-gl2') · 📜 the library's wares can be tapped on a phone: tap to choose, tap again to buy (the rows had no tap target) (_legacy: '2026-10-09-gl') · 🛡 worn gear shows on the knight, his own sprite recoloured part by part: the helm, the shoulders and belt (breastplate), the legs and the shield (on his arm and brought round on guard); story liveries still win · 🔥 the seat by the fire: he sits in the chapel library's chair, facing you, his strength coming back over 3½ seconds, and cannot walk, swing, guard or drink until he rises on his own (_legacy: '2026-10-09-rw') · 🏹 ranged weapons in the weapon slot, unlimited shots: the Shepherd's Sling (village shops), the Hunting Bow (Thornwood), the Throwing Axes (Dusthaven, thrown hard), the Crossbow (Ashfield and Hellgate, a bolt through three); each held in his left hand at rest and as he looses; the Prophetic Bow now draws like the hunting bow, gold-tipped, its arrows gold and trailing light (_legacy: '2026-10-09-ch') · 📦 set chapel chests: no more dice — every chest holds what its chapel's table says: the Short Sword in Hearthvale's first chest, Healing Potions (and later Reuben's brews) in every chapel, a piece of armour for each tier, and more gold the deeper you go (_legacy: '2026-10-09-pr') · ⌨ a keyboard controls map (☰ System → ⌨ Keyboard Controls: every key shown, two per action, change any of them, saved per computer; a one-time hint names the potion key) · 🛡 five gear slots — weapon, shield, helm, breastplate, legs — each old suit split into its pieces and sold apart, Ⓐ to wear or take off; ✝ the Armor of God, one piece from each late chapel named for its general, all five worn: "Stand firm" · 🧪 potions and tonics (Greater Healing, the Elixir of Renewal, Might, Ironbark, Swiftfoot, Eagle-Eye) and Reuben's Murky Flask, a quick slot (☰ Items ★, or R on a keyboard); 🍶 Reuben the wandering merchant camps by a cleansed village and moves on, and the inns know where (_legacy: '2026-10-09-bf') · ⚖ every boss fought by a bot: a boss's point-blank burst now lands once (standing inside a boss took a whole bar in one frame, Abaddon too); the warded Pretender King mends half as fast and never more than a tenth past where his knights were called (_legacy: '2026-10-09-rf') · 🌱 the Root Fiend can be beaten: each root heals it far less, they come more slowly and three at most, and cutting one holds the next off (_legacy: '2026-10-08-hb') · 👑 boss health bars like the knight's: green → yellow → red, the numbers on the bar, a pale chunk after each blow, a shake (Abaddon, the Pretender ×2, the King of the Shadows) (_legacy: '2026-10-08-hp') · ❤ a clearer health bar: longer, green → yellow → red, the numbers under it, a pale chunk for what a blow took, a shake when struck, a pulse and a red screen edge when low; 🔤 the canvas labels and race captions a size up, the pixel font preloaded; Squire Matthew moves on with the story; Aldric says "my child" (_legacy: '2026-10-08-tx') · 🔤 the text pass: every overlay's text scales with the screen (and ☰ System → Text Size); 📜 the story in order: lines that came too soon or went stale now follow the story, Abaddon is not re-fought (or un-won by dying), the knighting and the wedding staged true, the wedding verse Ecclesiastes 4:12, the generals' pronouns, no shared names (_legacy: '2026-10-07-si') · 🛒🍺 the shops and inns made grand: five shop halls (general store, forge, fish market, capital market, bazaar) and a two-storey inn with each town's sign over the hearth, all painted whole; the phone copy now shortens local names, proven the same program by scope (_legacy: '2026-10-07-ks') · 🛏 the homestead indoors: the knight's suite (library, fireplace, four-poster, wardrobe glass) with a walkout balcony over the farm, made over for Madison after the wedding and her place on the balcony; the family hall, the children's floor and the barn painted whole; Madison redrawn (dirty-blonde hair, four facings); the Old Mule drawn as a mule; one Sir Aldric after the wedding (_legacy: '2026-10-07-ty') · 🏇 the Tilting Yard: Stormgate's lists on the meadow under the north wall — grandstand, tilt, pavilions, racks and banners; two new north gates down from the city; Stormgate's marshals at its rail (_legacy: '2026-10-07-tk') · ⚔ tourney clean-up: you ride the joust yourself and the calls fade up in the sky; the knight seen from behind, turned square to his man, with forehand, backhand, guard, Ground Pound and hurt frames; a VICTORY / DEFEAT card that a mashed Ⓐ can't skip (_legacy: '2026-10-07-tj') · ⚔ the knight tourneys from behind the knight: circle the champion in duels, roam the melee, his combo and Ground Pound, read the wind-up and parry; 🐎 the joust (its own contest and the Grand Tournament's first bout); no potions (_legacy: '2026-10-07-sc') · 🐎 the tourney's horse race is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
 
 // ── tiny Web Audio kit (game has no audio system yet; kept self-contained) ──
 let bootAC=null;
