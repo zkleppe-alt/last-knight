@@ -8318,6 +8318,8 @@ function renderMenu(){
   //   of the quest log. Name the tab instead of relying on position.
   } else if(menu.tab===TAB.system && menu.sub==='controls'){ // ⌨ SYSTEM › KEYBOARD CONTROLS
     html += ctlPaneHtml();
+  } else if(menu.tab===TAB.system && menu.sub==='pad'){ // 🎮 SYSTEM › CONTROLLER
+    html += padPaneHtml();
   } else if(menu.tab===TAB.system){ // SYSTEM (save profiles)
     const rows=menuRows();
     html += `<div class="gm-stat"><span>Playing</span><b>Slot ${activeSlot} · ${player.name||'Knight'} · Lv ${player.level} · ${Object.keys(chapelProgress).filter(k=>chapelProgress[k]).length}/10</b></div>`;
@@ -8333,6 +8335,7 @@ function renderMenu(){
         note='the realm\'s travelling themes — Ⓐ to change'; }
       else if(r.kind==='sys' && r.id==='text'){ label=`🔤 Text Size  <b>${TEXT_SIZES[_textPref][0]}</b>`; note='bigger or smaller words in dialogue and menus — Ⓐ to change'; }
       else if(r.kind==='sys' && r.id==='controls'){ label='⌨ Keyboard Controls'; note=`see and change every key · 🧪 potion is ${ctlKeysFor('potion')}`; }
+      else if(r.kind==='sys' && r.id==='pad'){ label='🎮 Controller'; note=(typeof pad!=='undefined'&&pad.cfg)?`${padLayoutName()} · Xbox, GameCube or Super Nintendo layouts, or your own`:'Xbox, GameCube or Super Nintendo layouts, or your own'; }
       else if(r.kind==='sys' && r.id==='save'){ label='💾 Save Game'; note=`write your progress to Slot ${activeSlot}`; }
       else if(r.kind==='sys' && r.id==='export'){ label='📤 Export Save Code'; note='back up this hero as a code you can keep'; }
       else if(r.kind==='sys' && r.id==='import'){ label='📥 Import Save Code'; note='restore a hero from a code (into this slot)'; }
@@ -14342,6 +14345,241 @@ function ctlPaneHtml(){
 })();
 function ctlLeave(){ menu.sub=null; ctl.listen=null; ctl.msg='';
   const r=menuRows(); const i=r.findIndex(x=>x.kind==='sys'&&x.id==='controls'); menu.cursor=Math.max(0,i); menu.focus='list'; }
+
+// ════════════════════════════════════════════════════════════════
+//  🎮 CONTROLLER — a gamepad, mapped and remappable (2026-10-24-gp)
+// ════════════════════════════════════════════════════════════════
+// Zak: "Can we add a custom controller and keyboard in settings. With the controller have the ability to use classic
+// (Xbox - GameCube type set up, as well as some of the Super Nintendo type controller set ups for those who want that
+// OG feel". ☰ System → 🎮 Controller: pick a layout (Xbox, GameCube, Super Nintendo as printed, Super Nintendo with the
+// sword on B), or change any button (two per action, like the keyboard). Saved per computer ('klk_pad').
+// HOW: the pad is read every frame (navigator.getGamepads) and each press becomes the keyboard key the game already
+// answers to (the canonical key of that action), sent as a real key event marked so the keyboard map leaves it alone.
+// So everything a keyboard can do, a controller can, in every screen, with no handler changed.
+// Buttons are numbered the "standard" browser way: 0 bottom face, 1 right, 2 left, 3 top, 4 L/LB, 5 R/RB, 6 LT/ZL,
+// 7 RT/ZR, 8 Select/View, 9 Start/Menu, 10 left stick, 11 right stick, 12-15 d-pad ↑↓←→, 16 Home. Odd pads that
+// number their buttons differently are handled by changing the buttons: whatever you press is what gets bound.
+var PAD_ACTIONS = ['up','down','left','right','act','guard','potion','nextpot','menu','surface'];
+var PAD_CANON = { up:'w', down:'s', left:'a', right:'d', act:'j', guard:'k', potion:'h', nextpot:'r', menu:'m', surface:'u' };
+var PAD_DIRS = { up:1, down:1, left:1, right:1 };
+var PAD_NAMES = {
+  xbox: ['A','B','X','Y','LB','RB','LT','RT','View','Menu','LS','RS','D-pad ↑','D-pad ↓','D-pad ←','D-pad →','Xbox'],
+  gc:   ['A','X','B','Y','L btn','Z','L','R','Select','Start','Stick','C-stick','D-pad ↑','D-pad ↓','D-pad ←','D-pad →','Home'],
+  snes: ['B','A','Y','X','L','R','ZL','ZR','Select','Start','L-stick','R-stick','↑','↓','←','→','Home'],
+};
+var PAD_LAYOUTS = [
+  { id:'xbox', fam:'xbox', name:'Classic — Xbox', blurb:'A strikes and talks, B guards, X drinks, Y and RB change the potion, Menu opens ☰.',
+    binds:{ up:[12,null], down:[13,null], left:[14,null], right:[15,null], act:[0,7], guard:[1,6], potion:[2,4], nextpot:[3,5], menu:[9,null], surface:[8,null] } },
+  { id:'gc', fam:'gc', name:'Classic — GameCube', blurb:'The big A strikes and talks, B guards, X drinks, Y and Z change the potion, R strikes, L guards, Start opens ☰.',
+    binds:{ up:[12,null], down:[13,null], left:[14,null], right:[15,null], act:[0,7], guard:[2,6], potion:[1,null], nextpot:[3,5], menu:[9,null], surface:[8,4] } },
+  { id:'snes', fam:'snes', name:'OG — Super Nintendo (A & B as printed)', blurb:'A (right) strikes and talks, B (bottom) guards, Y drinks, X changes the potion, L/R the same, Start opens ☰, Select surfaces.',
+    binds:{ up:[12,null], down:[13,null], left:[14,null], right:[15,null], act:[1,null], guard:[0,null], potion:[2,4], nextpot:[3,5], menu:[9,null], surface:[8,null] } },
+  { id:'zelda', fam:'snes', name:'OG — Super Nintendo (sword on B)', blurb:'The old adventure way: B swings the sword and talks, Y raises the shield, A drinks, X or Start opens ☰, R changes the potion.',
+    binds:{ up:[12,null], down:[13,null], left:[14,null], right:[15,null], act:[0,null], guard:[2,4], potion:[1,null], nextpot:[5,null], menu:[9,3], surface:[8,null] } },
+];
+var PAD_LABEL = { up:'▲ Up', down:'▼ Down', left:'◀ Left', right:'▶ Right', act:'Ⓐ Talk · open · strike', guard:'Ⓑ Guard (hold) · back',
+  potion:'🧪 Drink quick potion', nextpot:'🔄 Next potion', menu:'☰ Menu', surface:'🌊 Surface (underwater)' };
+var pad = { cfg:null, held:{}, btnPrev:[], dirOn:{}, rep:{}, swallow:{}, listen:null, row:0, col:0, msg:'', id:'', seen:false, rafOn:false, hinted:false };
+function padLayout(id){ return PAD_LAYOUTS.find(l=>l.id===id) || null; }
+function padCopy(b){ const o={}; PAD_ACTIONS.forEach(a=>{ o[a]=(b&&b[a]||[null,null]).slice(0,2); while(o[a].length<2) o[a].push(null); }); return o; }
+function padDefaults(id){ const L=padLayout(id||'xbox'); return { v:1, layout:L.id, fam:L.fam, binds:padCopy(L.binds), stick:true, chosen:false }; }
+function padLoad(){
+  pad.cfg=padDefaults('xbox');
+  try{ const s=JSON.parse(localStorage.getItem('klk_pad')||'null');
+    if(s && s.binds){ pad.cfg.layout=(padLayout(s.layout)||s.layout==='custom')?s.layout:'xbox'; pad.cfg.fam=PAD_NAMES[s.fam]?s.fam:'xbox';
+      pad.cfg.binds=padCopy(s.binds); pad.cfg.stick=s.stick!==false; pad.cfg.chosen=!!s.chosen; }
+    if(s && s.hinted) pad.hinted=true; }catch(e){}
+}
+function padSave(){ try{ localStorage.setItem('klk_pad', JSON.stringify(Object.assign({}, pad.cfg, { hinted:pad.hinted }))); }catch(e){} }
+function padUse(id){ const L=padLayout(id); if(!L) return; pad.cfg.layout=L.id; pad.cfg.fam=L.fam; pad.cfg.binds=padCopy(L.binds); pad.cfg.chosen=true; padSave(); }
+function padBtnName(i){ if(i===null||i===undefined) return '—'; const n=(PAD_NAMES[pad.cfg.fam]||PAD_NAMES.xbox)[i]; return n || ('Button '+i); }
+function padLayoutName(){ const L=padLayout(pad.cfg.layout); return L ? L.name : 'Custom ('+(pad.cfg.fam==='gc'?'GameCube':pad.cfg.fam==='snes'?'Super Nintendo':'Xbox')+' names)'; }
+function padButtonsFor(act){ if(!pad.cfg) padLoad(); return pad.cfg.binds[act].filter(b=>b!==null).map(padBtnName).join(' / ') || '—'; }
+// what the pad says from its name: the layout to start on, if the player has never chosen one
+function padGuess(id){ const s=String(id||'').toLowerCase();
+  if(/gamecube|game cube|wii u|mayflash|ngc|smash/.test(s)) return 'gc';
+  if(/snes|super nintendo|super famicom|sfc|8bitdo sn|retro|classic usb|usb gamepad|0810|0079|12bd/.test(s)) return 'snes';
+  return 'xbox'; }
+// ── a key, as the keyboard would send it ──
+function padFire(type, key, repeat){
+  const init={ key, code:'', bubbles:true, cancelable:true, repeat:!!repeat };
+  if(typeof KeyboardEvent==='function' && typeof dispatchEvent==='function'){
+    let ev; try{ ev=new KeyboardEvent(type, init); }catch(e){ ev=null; }
+    if(ev){ ev.__ctl=true; ev.__pad=true; dispatchEvent(ev); return; } }
+  if(globalThis.__winListeners){   // the test harness's window
+    const ev=Object.assign({ type, defaultPrevented:false, preventDefault(){ this.defaultPrevented=true; }, stopPropagation(){}, __ctl:true, __pad:true }, init);
+    for(const fn of (globalThis.__winListeners[type]||[]).slice()) fn(ev); }
+}
+// the key an action sends right now (a few screens answer only to Enter or Esc)
+function padKeyFor(act){
+  if(act==='act'){
+    if(typeof petName!=='undefined' && petName.open) return 'Enter';
+    if(typeof intro!=='undefined' && intro.open && typeof INTRO_STORY!=='undefined' && intro.step===INTRO_STORY.length) return 'Enter';
+  }
+  if(act==='menu'){ if((typeof boot!=='undefined' && !boot.done) || (typeof intro!=='undefined' && intro.open)) return 'Enter'; }
+  if(act==='guard'){ if(typeof saveio!=='undefined' && saveio.open) return 'Escape'; }
+  return PAD_CANON[act];
+}
+function padDown(act, repeat){ const k = repeat ? pad.held[act] : padKeyFor(act); if(!k) return; pad.held[act]=k; padFire('keydown', k, repeat); }
+function padUp(act){ const k=pad.held[act]; if(!k) return; delete pad.held[act]; padFire('keyup', k, false); }
+function padReleaseAll(){ Object.keys(pad.held).forEach(padUp); pad.rep={}; }
+function padActive(gp, act){
+  const b=pad.cfg.binds[act];
+  for(const i of b){ if(i===null||i===undefined) continue; if(pad.swallow[i]) continue; const bt=gp.buttons[i]; if(bt && (bt.pressed || bt.value>0.5)) return true; }
+  if(pad.cfg.stick && PAD_DIRS[act] && gp.axes && gp.axes.length>=2){
+    const x=gp.axes[0]||0, y=gp.axes[1]||0, D=0.5;
+    if(act==='up' && y<-D) return true; if(act==='down' && y>D) return true; if(act==='left' && x<-D) return true; if(act==='right' && x>D) return true; }
+  return false;
+}
+function padFirst(){ try{ const list=(typeof navigator!=='undefined' && navigator.getGamepads) ? navigator.getGamepads() : null; if(!list) return null;
+  for(const g of list) if(g && g.connected!==false && g.buttons && g.buttons.length) return g; }catch(e){} return null; }
+// read the pad, once a frame
+function padPoll(now){
+  if(!pad.cfg) padLoad();
+  const gp=padFirst();
+  if(!gp){ if(pad.id){ padReleaseAll(); pad.id=''; if(typeof menu!=='undefined' && menu.open && menu.sub==='pad') renderMenu(); } return; }
+  if(gp.id!==pad.id){ pad.id=gp.id; pad.btnPrev=[]; padConnected(gp); }
+  const pressed=gp.buttons.map(b=>!!(b && (b.pressed || b.value>0.5)));
+  // a button let go is no longer swallowed
+  for(const i in pad.swallow) if(!pressed[i]) delete pad.swallow[i];
+  // ── waiting for a button on the Controller screen ──
+  if(pad.listen){
+    const i=pressed.findIndex((p,j)=>p && !pad.btnPrev[j]);
+    if(i>=0){ const L=pad.listen; pad.listen=null; pad.swallow[i]=true; padBind(L.act, L.slot, i); if(menu.open) renderMenu(); }
+    pad.btnPrev=pressed; return;
+  }
+  for(const act of PAD_ACTIONS){
+    const on=padActive(gp, act);
+    if(on && !pad.held[act]){ padDown(act,false); if(PAD_DIRS[act]) pad.rep[act]=now+380; }
+    else if(!on && pad.held[act]){ padUp(act); delete pad.rep[act]; }
+    else if(on && PAD_DIRS[act] && pad.rep[act] && now>=pad.rep[act]){ padDown(act,true); pad.rep[act]=now+110; }   // held: repeat like a key
+  }
+  pad.btnPrev=pressed;
+}
+function padBind(act, slot, i){
+  let moved='';
+  PAD_ACTIONS.forEach(a=>{ const b=pad.cfg.binds[a]; for(let s=0;s<2;s++) if(b[s]===i && !(a===act && s===slot)){ b[s]=null; moved=PAD_LABEL[a]; } });
+  pad.cfg.binds[act][slot]=i; pad.cfg.layout='custom'; pad.cfg.chosen=true; padSave();
+  pad.msg=padBtnName(i)+' → '+PAD_LABEL[act]+(moved?' (taken from '+moved+')':'');
+  if(typeof sfxMenu==='function') sfxMenu(true);
+}
+function padConnected(gp){
+  if(!pad.cfg.chosen){ const g=padGuess(gp.id); const L=padLayout(g); pad.cfg.layout=L.id; pad.cfg.fam=L.fam; pad.cfg.binds=padCopy(L.binds); padSave(); }
+  if(typeof menu!=='undefined' && menu.open && menu.sub==='pad') renderMenu();
+  if(!pad.hinted && typeof boot!=='undefined' && boot.done){ pad.hinted=true; padSave();
+    setTimeout(()=>{ try{ showBanner('🎮 <b>Controller ready</b> — '+padLayoutName()+'<br><span style="font-size:calc(7px*var(--tx,1))">🧪 potion: <b>'+padButtonsFor('potion')+'</b> · ☰ menu: <b>'+padButtonsFor('menu')+'</b><br>Other layouts (GameCube, Super Nintendo) and every button: ☰ → System → 🎮 Controller</span>', 4200); }catch(e){} }, 400); }
+}
+// read from loop(), once a frame — not a second requestAnimationFrame chain of its own (the game runs exactly one)
+// ── the Controller screen, inside ☰ System ──
+// rows: 0 layout · 1..10 the actions · 11 stick · 12 reset · 13 back
+function padRows(){ const r=[{ kind:'padlayout', id:'layout' }]; PAD_ACTIONS.forEach(a=>r.push({ kind:'pad', id:a })); r.push({ kind:'padstick', id:'stick' }, { kind:'padreset', id:'reset' }, { kind:'padback', id:'back' }); return r; }
+function padFaceHtml(){
+  // the four face buttons, where they sit on this kind of pad, and what each does
+  const what=i=>{ const a=PAD_ACTIONS.find(x=>pad.cfg.binds[x].indexOf(i)>=0); return a ? ({act:'Ⓐ',guard:'🛡',potion:'🧪',nextpot:'🔄',menu:'☰',surface:'🌊',up:'▲',down:'▼',left:'◀',right:'▶'})[a] : ''; };
+  const col={ xbox:['#3c9a3c','#c0392b','#2f6fb8','#d4a017'], gc:['#2e9e6e','#a8a8b0','#c0392b','#a8a8b0'], snes:['#d4a017','#c0392b','#2e8b57','#2f6fb8'] }[pad.cfg.fam] || ['#888','#888','#888','#888'];
+  const pos=[[46,86],[86,46],[6,46],[46,6]];   // bottom, right, left, top
+  let h='<div style="position:relative;width:122px;height:122px;margin:6px auto 4px">';
+  for(let i=0;i<4;i++){ const big=(pad.cfg.fam==='gc' && i===0), sz=big?40:30, off=(sz-30)/2;
+    h+=`<div style="position:absolute;left:${pos[i][0]-off}px;top:${pos[i][1]-off}px;width:${sz}px;height:${sz}px;border-radius:50%;background:${col[i]};border:2px solid #3a2a14;color:#fff;font-size:10px;line-height:1.1;text-align:center;display:flex;flex-direction:column;justify-content:center;font-weight:bold;text-shadow:0 1px 0 #000">`
+      + `<span>${padBtnName(i)}</span><span style="font-size:11px">${what(i)}</span></div>`; }
+  return h+'</div>';
+}
+function padPaneHtml(){
+  if(!pad.cfg) padLoad();
+  const box=(txt,on,sel)=>`<span style="display:inline-block;min-width:44px;text-align:center;padding:1px 5px;margin-left:4px;border:1px solid ${on?'#3f6b44':(sel?'#7a5c28':'#8a7450')};border-radius:3px;background:${on?'#cfe0c0':(sel?'#f8e8b8':'#f4ead0')};font-weight:bold;pointer-events:none">${txt}</span>`;
+  const L=padLayout(pad.cfg.layout);
+  let h=`<div class="gm-sectitle">🎮 Controller</div>`;
+  h+=`<div style="font-size:calc(7.5px*var(--tx,1));color:${pad.id?'#2f5434':'#7a3a20'};padding:2px 6px 2px;font-weight:bold">${pad.id?'● Connected: '+String(pad.id).replace(/</g,'&lt;').slice(0,48):'○ No controller found — plug one in (or pair it) and press any button.'}</div>`;
+  if(pad.msg) h+=`<div style="font-size:calc(7.5px*var(--tx,1));color:#2f5434;font-weight:bold;padding:2px 6px 4px">${pad.msg}</div>`;
+  let idx=0; const cur=i=>menu.cursor===i;
+  h+=`<div class="gm-item ${cur(idx)?'cur':''}" data-menurow="${idx}"><span style="flex:1;pointer-events:none">Layout</span><b style="pointer-events:none">◀ ${padLayoutName()} ▶</b></div>`; idx++;
+  h+=`<div style="font-size:calc(7px*var(--tx,1));color:#4a3a1a;padding:0 8px 4px;line-height:1.5">${L?L.blurb:'Your own buttons. Pick a layout to start again from it.'}</div>`;
+  h+=padFaceHtml();
+  h+=`<div class="gm-sectitle">Buttons</div>`;
+  PAD_ACTIONS.forEach(a=>{
+    const b=pad.cfg.binds[a], lis=pad.listen && pad.listen.act===a;
+    const bx=i=>box(lis&&pad.listen.slot===i?'press…':padBtnName(b[i]), lis&&pad.listen.slot===i, cur(idx)&&pad.col===i&&!lis);
+    h+=`<div class="gm-item ${cur(idx)?'cur':''}" data-menurow="${idx}"><span style="flex:1;pointer-events:none">${PAD_LABEL[a]}</span>${bx(0)}${bx(1)}</div>`; idx++;
+  });
+  h+=`<div class="gm-item ${cur(idx)?'cur':''}" data-menurow="${idx}"><span style="flex:1;pointer-events:none">🕹 Left stick moves too</span><b style="pointer-events:none">${pad.cfg.stick?'ON':'OFF'}</b></div>`; idx++;
+  h+=`<div class="gm-sectitle">&nbsp;</div>`;
+  h+=`<div class="gm-item ${cur(idx)?'cur':''}" data-menurow="${idx}">↺ <span style="flex:1;pointer-events:none">Reset to ${L?'this layout':'the Xbox layout'}</span></div>`; idx++;
+  h+=`<div class="gm-item ${cur(idx)?'cur':''}" data-menurow="${idx}">↩ <span style="flex:1;pointer-events:none">Back to System</span></div>`;
+  h+=`<div style="font-size:calc(7px*var(--tx,1));color:#665639;margin:8px 4px;line-height:1.7">Ⓐ on a button, then press the controller button you want (Esc on a keyboard keeps it, ⌫ clears it). A button already in use moves to the action you give it. Saved on this computer. A pad that numbers its buttons oddly: just set each one by pressing it.</div>`;
+  return h;
+}
+function padLeave(){ menu.sub=null; pad.listen=null; pad.msg='';
+  const r=menuRows(); const i=r.findIndex(x=>x.kind==='sys'&&x.id==='pad'); menu.cursor=Math.max(0,i); menu.focus='list'; }
+function padCycle(d){ const ids=PAD_LAYOUTS.map(l=>l.id); let i=ids.indexOf(pad.cfg.layout); if(i<0) i=d>0?-1:0; i=(i+d+ids.length)%ids.length; padUse(ids[i]); pad.msg='Layout: '+padLayoutName(); }
+(function padInstall(){
+  padLoad();
+  const _rows=menuRows;
+  menuRows=function(){
+    if(menu.open && menu.tab===TAB.system && menu.sub==='pad') return padRows();
+    const r=_rows.apply(this, arguments);
+    if(menu.tab===TAB.system && !menu.sub){ const i=r.findIndex(x=>x.kind==='sys'&&x.id==='controls'); if(i>=0 && !r.some(x=>x.id==='pad')) r.splice(i+1,0,{ kind:'sys', id:'pad' }); }
+    return r;
+  };
+  const _render=renderMenu;
+  renderMenu=function(){
+    const r=_render.apply(this, arguments);   // the System branch paints padPaneHtml() itself while menu.sub==='pad'
+    if(menu.open && menu.tab===TAB.system && menu.sub==='pad'){
+      const hint=gmEl().querySelector && gmEl().querySelector('.gm-hint'); if(hint) hint.innerHTML='▲▼ choose · ◀▶ layout or button · Ⓐ change · Ⓑ back';
+    }
+    return r;
+  };
+  const _select=menuSelect;
+  menuSelect=function(){
+    if(menu.open && menu.tab===TAB.system && menu.sub==='pad' && menu.focus==='list'){
+      const row=padRows()[menu.cursor]; if(!row) return;
+      if(row.kind==='padlayout') padCycle(1);
+      else if(row.kind==='pad'){ pad.listen={ act:row.id, slot:pad.col }; pad.msg=pad.id?'':'Plug in a controller first — then press the button.'; }
+      else if(row.kind==='padstick'){ pad.cfg.stick=!pad.cfg.stick; padSave(); pad.msg='Left stick '+(pad.cfg.stick?'moves the knight too.':'is off — the d-pad moves him.'); }
+      else if(row.kind==='padreset'){ padUse(padLayout(pad.cfg.layout)?pad.cfg.layout:'xbox'); pad.msg='Every button is back to '+padLayoutName()+'.'; }
+      else padLeave();
+      if(typeof sfxMenu==='function') sfxMenu(true);
+      renderMenu(); return;
+    }
+    const rows=menuRows(), row=rows[menu.cursor];
+    if(menu.open && menu.focus==='list' && row && row.kind==='sys' && row.id==='pad'){
+      menu.sub='pad'; menu.cursor=0; pad.col=0; pad.msg=''; pad.listen=null;
+      if(typeof sfxMenu==='function') sfxMenu(true);
+      renderMenu(); return;
+    }
+    return _select.apply(this, arguments);
+  };
+  const _move=menuMove;
+  menuMove=function(dx,dy){
+    if(menu.open && menu.sub==='pad' && menu.focus==='list' && dx!==0){
+      if(menu.cursor===0) padCycle(dx>0?1:-1); else { pad.col=pad.col?0:1; pad.listen=null; }
+      renderMenu(); return; }
+    return _move.apply(this, arguments);
+  };
+  const _tab=setMenuTab;
+  setMenuTab=function(){ if(menu.sub==='pad'){ menu.sub=null; pad.listen=null; } return _tab.apply(this, arguments); };
+  const _back=menuBackToRail;
+  menuBackToRail=function(){ if(menu.sub==='pad'){ padLeave(); renderMenu(); return true; } return _back.apply(this, arguments); };
+  const _toggle=toggleMenu;
+  toggleMenu=function(){ if(menu.open && menu.sub==='pad'){ padLeave(); renderMenu(); return; } return _toggle.apply(this, arguments); };
+  // the keyboard while a button is awaited: Esc keeps it, ⌫ clears it, nothing else gets through
+  const _ck=ctlKey;
+  ctlKey=function(e){
+    if(pad.listen && e && !e.__pad && !e.__ctl && e.type==='keydown'){
+      const k=ctlNorm(e.key); if(e.preventDefault) e.preventDefault(); e.__ctl=true; e.__ctlEat=true; ctlSetKey(e,'Unidentified');
+      const L=pad.listen;
+      if(k==='backspace'||k==='delete'){ pad.cfg.binds[L.act][L.slot]=null; pad.cfg.layout='custom'; padSave(); pad.msg='Button cleared.'; pad.listen=null; }
+      else if(k==='escape'){ pad.msg='Left as it was.'; pad.listen=null; }
+      else pad.msg='Press a button on the controller (Esc keeps it as it was).';
+      if(menu.open) renderMenu(); return true;
+    }
+    return _ck.apply(this, arguments);
+  };
+  if(typeof addEventListener==='function'){
+    addEventListener('gamepadconnected', ()=>{ try{ padPoll(typeof performance!=='undefined'?performance.now():0); }catch(e){} });
+    addEventListener('gamepaddisconnected', ()=>{ try{ padReleaseAll(); pad.id=''; }catch(e){} });
+    addEventListener('blur', ()=>{ try{ padReleaseAll(); }catch(e){} });
+  }
+})();
 
 addEventListener('keydown', e=>{ if(ctlKey(e)) return;   // ⌨ remapped keys arrive here as the keys the handlers expect
   const lk=e.key.toLowerCase();
@@ -20464,6 +20702,7 @@ function spawnCullDemons(){
 }
 function loop(ts){
   const dt=Math.min(34, ts-last)||16; last=ts;
+  if(typeof padPoll==='function'){ try{ padPoll(ts); }catch(e){} }   // 🎮 the controller is read once a frame, inside the one frame chain
   // The reveal is driven ONCE PER FRAME, not inside a place.kind branch: a
   // conversation can open anywhere, and the banner tickers are per-branch. The
   // first version of this hook sat in the overworld branch and simply never ran.
@@ -39610,7 +39849,7 @@ function boatRescue(){
   return true;
 }
 
-const BUILD_TAG = '2026-10-23-bt';  // ⛵ the boat stays where you left it: the save remembers where she is tied up (or that you were aboard — she waits on the water and you stand on the nearest shore); an older save on an island with no town drifts her to the nearest shore you can walk to (_legacy: '2026-10-14-dr') · 🚪 no more stuck in Tobias's doorway: walking out before the lessons steps you back into the room before he calls you back (it used to repeat every frame while you stood on the door) (_legacy: '2026-10-13-mz') · 🧭 every chapel maze can be walked: Hellgate's first maze was cut in two on every visit (its stair out of reach), and small pockets were sealed off in Ironhold, Crystalpeak and Stormgate — the cut-off parts are joined back through the fewest walls · ⚡ Ruth's hall: your own sword no longer cuts down her people, they come back with the hall after a fall, with none left the bolts come for you so the blade can still be charged, and a second more warning before each strike (_legacy: '2026-10-09-gl2') · 📜 the library's wares can be tapped on a phone: tap to choose, tap again to buy (the rows had no tap target) (_legacy: '2026-10-09-gl') · 🛡 worn gear shows on the knight, his own sprite recoloured part by part: the helm, the shoulders and belt (breastplate), the legs and the shield (on his arm and brought round on guard); story liveries still win · 🔥 the seat by the fire: he sits in the chapel library's chair, facing you, his strength coming back over 3½ seconds, and cannot walk, swing, guard or drink until he rises on his own (_legacy: '2026-10-09-rw') · 🏹 ranged weapons in the weapon slot, unlimited shots: the Shepherd's Sling (village shops), the Hunting Bow (Thornwood), the Throwing Axes (Dusthaven, thrown hard), the Crossbow (Ashfield and Hellgate, a bolt through three); each held in his left hand at rest and as he looses; the Prophetic Bow now draws like the hunting bow, gold-tipped, its arrows gold and trailing light (_legacy: '2026-10-09-ch') · 📦 set chapel chests: no more dice — every chest holds what its chapel's table says: the Short Sword in Hearthvale's first chest, Healing Potions (and later Reuben's brews) in every chapel, a piece of armour for each tier, and more gold the deeper you go (_legacy: '2026-10-09-pr') · ⌨ a keyboard controls map (☰ System → ⌨ Keyboard Controls: every key shown, two per action, change any of them, saved per computer; a one-time hint names the potion key) · 🛡 five gear slots — weapon, shield, helm, breastplate, legs — each old suit split into its pieces and sold apart, Ⓐ to wear or take off; ✝ the Armor of God, one piece from each late chapel named for its general, all five worn: "Stand firm" · 🧪 potions and tonics (Greater Healing, the Elixir of Renewal, Might, Ironbark, Swiftfoot, Eagle-Eye) and Reuben's Murky Flask, a quick slot (☰ Items ★, or R on a keyboard); 🍶 Reuben the wandering merchant camps by a cleansed village and moves on, and the inns know where (_legacy: '2026-10-09-bf') · ⚖ every boss fought by a bot: a boss's point-blank burst now lands once (standing inside a boss took a whole bar in one frame, Abaddon too); the warded Pretender King mends half as fast and never more than a tenth past where his knights were called (_legacy: '2026-10-09-rf') · 🌱 the Root Fiend can be beaten: each root heals it far less, they come more slowly and three at most, and cutting one holds the next off (_legacy: '2026-10-08-hb') · 👑 boss health bars like the knight's: green → yellow → red, the numbers on the bar, a pale chunk after each blow, a shake (Abaddon, the Pretender ×2, the King of the Shadows) (_legacy: '2026-10-08-hp') · ❤ a clearer health bar: longer, green → yellow → red, the numbers under it, a pale chunk for what a blow took, a shake when struck, a pulse and a red screen edge when low; 🔤 the canvas labels and race captions a size up, the pixel font preloaded; Squire Matthew moves on with the story; Aldric says "my child" (_legacy: '2026-10-08-tx') · 🔤 the text pass: every overlay's text scales with the screen (and ☰ System → Text Size); 📜 the story in order: lines that came too soon or went stale now follow the story, Abaddon is not re-fought (or un-won by dying), the knighting and the wedding staged true, the wedding verse Ecclesiastes 4:12, the generals' pronouns, no shared names (_legacy: '2026-10-07-si') · 🛒🍺 the shops and inns made grand: five shop halls (general store, forge, fish market, capital market, bazaar) and a two-storey inn with each town's sign over the hearth, all painted whole; the phone copy now shortens local names, proven the same program by scope (_legacy: '2026-10-07-ks') · 🛏 the homestead indoors: the knight's suite (library, fireplace, four-poster, wardrobe glass) with a walkout balcony over the farm, made over for Madison after the wedding and her place on the balcony; the family hall, the children's floor and the barn painted whole; Madison redrawn (dirty-blonde hair, four facings); the Old Mule drawn as a mule; one Sir Aldric after the wedding (_legacy: '2026-10-07-ty') · 🏇 the Tilting Yard: Stormgate's lists on the meadow under the north wall — grandstand, tilt, pavilions, racks and banners; two new north gates down from the city; Stormgate's marshals at its rail (_legacy: '2026-10-07-tk') · ⚔ tourney clean-up: you ride the joust yourself and the calls fade up in the sky; the knight seen from behind, turned square to his man, with forehand, backhand, guard, Ground Pound and hurt frames; a VICTORY / DEFEAT card that a mashed Ⓐ can't skip (_legacy: '2026-10-07-tj') · ⚔ the knight tourneys from behind the knight: circle the champion in duels, roam the melee, his combo and Ground Pound, read the wind-up and parry; 🐎 the joust (its own contest and the Grand Tournament's first bout); no potions (_legacy: '2026-10-07-sc') · 🐎 the tourney's horse race is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
+const BUILD_TAG = '2026-10-24-gp';  // 🎮 controllers: ☰ System → 🎮 Controller — Xbox and GameCube layouts, two Super Nintendo layouts (A & B as printed, or the sword on B), or any button changed, two per action; the left stick moves too; a pad's buttons arrive as the keys the game already knows, so it works on every screen (_legacy: '2026-10-23-bt') · ⛵ the boat stays where you left it: the save remembers where she is tied up (or that you were aboard — she waits on the water and you stand on the nearest shore); an older save on an island with no town drifts her to the nearest shore you can walk to (_legacy: '2026-10-14-dr') · 🚪 no more stuck in Tobias's doorway: walking out before the lessons steps you back into the room before he calls you back (it used to repeat every frame while you stood on the door) (_legacy: '2026-10-13-mz') · 🧭 every chapel maze can be walked: Hellgate's first maze was cut in two on every visit (its stair out of reach), and small pockets were sealed off in Ironhold, Crystalpeak and Stormgate — the cut-off parts are joined back through the fewest walls · ⚡ Ruth's hall: your own sword no longer cuts down her people, they come back with the hall after a fall, with none left the bolts come for you so the blade can still be charged, and a second more warning before each strike (_legacy: '2026-10-09-gl2') · 📜 the library's wares can be tapped on a phone: tap to choose, tap again to buy (the rows had no tap target) (_legacy: '2026-10-09-gl') · 🛡 worn gear shows on the knight, his own sprite recoloured part by part: the helm, the shoulders and belt (breastplate), the legs and the shield (on his arm and brought round on guard); story liveries still win · 🔥 the seat by the fire: he sits in the chapel library's chair, facing you, his strength coming back over 3½ seconds, and cannot walk, swing, guard or drink until he rises on his own (_legacy: '2026-10-09-rw') · 🏹 ranged weapons in the weapon slot, unlimited shots: the Shepherd's Sling (village shops), the Hunting Bow (Thornwood), the Throwing Axes (Dusthaven, thrown hard), the Crossbow (Ashfield and Hellgate, a bolt through three); each held in his left hand at rest and as he looses; the Prophetic Bow now draws like the hunting bow, gold-tipped, its arrows gold and trailing light (_legacy: '2026-10-09-ch') · 📦 set chapel chests: no more dice — every chest holds what its chapel's table says: the Short Sword in Hearthvale's first chest, Healing Potions (and later Reuben's brews) in every chapel, a piece of armour for each tier, and more gold the deeper you go (_legacy: '2026-10-09-pr') · ⌨ a keyboard controls map (☰ System → ⌨ Keyboard Controls: every key shown, two per action, change any of them, saved per computer; a one-time hint names the potion key) · 🛡 five gear slots — weapon, shield, helm, breastplate, legs — each old suit split into its pieces and sold apart, Ⓐ to wear or take off; ✝ the Armor of God, one piece from each late chapel named for its general, all five worn: "Stand firm" · 🧪 potions and tonics (Greater Healing, the Elixir of Renewal, Might, Ironbark, Swiftfoot, Eagle-Eye) and Reuben's Murky Flask, a quick slot (☰ Items ★, or R on a keyboard); 🍶 Reuben the wandering merchant camps by a cleansed village and moves on, and the inns know where (_legacy: '2026-10-09-bf') · ⚖ every boss fought by a bot: a boss's point-blank burst now lands once (standing inside a boss took a whole bar in one frame, Abaddon too); the warded Pretender King mends half as fast and never more than a tenth past where his knights were called (_legacy: '2026-10-09-rf') · 🌱 the Root Fiend can be beaten: each root heals it far less, they come more slowly and three at most, and cutting one holds the next off (_legacy: '2026-10-08-hb') · 👑 boss health bars like the knight's: green → yellow → red, the numbers on the bar, a pale chunk after each blow, a shake (Abaddon, the Pretender ×2, the King of the Shadows) (_legacy: '2026-10-08-hp') · ❤ a clearer health bar: longer, green → yellow → red, the numbers under it, a pale chunk for what a blow took, a shake when struck, a pulse and a red screen edge when low; 🔤 the canvas labels and race captions a size up, the pixel font preloaded; Squire Matthew moves on with the story; Aldric says "my child" (_legacy: '2026-10-08-tx') · 🔤 the text pass: every overlay's text scales with the screen (and ☰ System → Text Size); 📜 the story in order: lines that came too soon or went stale now follow the story, Abaddon is not re-fought (or un-won by dying), the knighting and the wedding staged true, the wedding verse Ecclesiastes 4:12, the generals' pronouns, no shared names (_legacy: '2026-10-07-si') · 🛒🍺 the shops and inns made grand: five shop halls (general store, forge, fish market, capital market, bazaar) and a two-storey inn with each town's sign over the hearth, all painted whole; the phone copy now shortens local names, proven the same program by scope (_legacy: '2026-10-07-ks') · 🛏 the homestead indoors: the knight's suite (library, fireplace, four-poster, wardrobe glass) with a walkout balcony over the farm, made over for Madison after the wedding and her place on the balcony; the family hall, the children's floor and the barn painted whole; Madison redrawn (dirty-blonde hair, four facings); the Old Mule drawn as a mule; one Sir Aldric after the wedding (_legacy: '2026-10-07-ty') · 🏇 the Tilting Yard: Stormgate's lists on the meadow under the north wall — grandstand, tilt, pavilions, racks and banners; two new north gates down from the city; Stormgate's marshals at its rail (_legacy: '2026-10-07-tk') · ⚔ tourney clean-up: you ride the joust yourself and the calls fade up in the sky; the knight seen from behind, turned square to his man, with forehand, backhand, guard, Ground Pound and hurt frames; a VICTORY / DEFEAT card that a mashed Ⓐ can't skip (_legacy: '2026-10-07-tj') · ⚔ the knight tourneys from behind the knight: circle the champion in duels, roam the melee, his combo and Ground Pound, read the wind-up and parry; 🐎 the joust (its own contest and the Grand Tournament's first bout); no potions (_legacy: '2026-10-07-sc') · 🐎 the tourney's horse race is a steeplechase from behind your mount: your own steed in its pet looks or a tourney horse, four courses through the towns' country, timed jumps, urging on the stride, stamina and drafting against fair rivals; per-course records (_legacy: '2026-10-06-br3') · 🏁 all five regatta courses race from behind your boat: Capital's figure-eight, Mistral's switchbacks, Tabor's sweep, Sunfall's spiral; rival crews slow for tight turns, a hard turn bleeds a little speed (_legacy: '2026-10-06-br2') · 🏁 race controls: ◀ ▶ together on the left, ROW on the right (_legacy: '2026-10-06-br') · 🏁 the boat race from behind your own boat: wind, buoys, gold gates and timed oar strokes against fair rivals (Saltmere first) (_legacy: '2026-10-06-kb2') · ⚓ dock at the Saltmere pier again (a pier or bridge counts as shore from the boat); moored, she looks as she sails (_legacy: '2026-10-06-kb') · ⛵ the knight's own boat is a little royal cutter, 40 px, showing every part fitted at the boat-race dock: hull, sail and mark, figurehead, rig and keel (_legacy: '2026-10-06-kp5') · 🛡 facing left the shield comes round from behind him on guard, not across his front; the side-on shield a touch smaller (_legacy: '2026-10-06-kp4') · 🛡 a bigger, brighter shield side-on, its edge behind him facing left, back at once after a Ground Pound; the point held nearly level (_legacy: '2026-10-06-kp3') · 🛡 the side-on point rides higher; facing right the shield stays on his near arm and swings round from there (_legacy: '2026-10-06-kp2') · 🗡 the resting weapon seen as it should be side-on (carried point-forward) and from behind (the back of the blade) (_legacy: '2026-10-06-kp') · 🛡 the sword hangs in his left hand at rest, the shield comes round on guard, the arms swing as he walks; the Version B weapons (_legacy: '2026-10-06-gp') · ⚔ the weapons redrawn on whole pixels, the crescent swing, one Ground Pound for every weapon (_legacy: '2026-10-05-still') · 🧱 buildings and props drawn in their own space: the brick shimmer is gone (_legacy: '2026-10-05-cam') · 📷 whole-pixel camera, no shimmer while walking; ✒ the outline cached and thinner (_legacy: '2026-10-05-so2', '2026-10-01-so', '2026-10-01-vs', '2026-10-01-hs', '2026-10-01-hl', '2026-10-01-dg', '2026-10-01-fd', '2026-10-01-ow', '2026-10-01-hg', '2026-10-01-sh', '2026-10-01-sg', '2026-10-01-af', '2026-10-01-cp', '2026-10-01-dh', '2026-10-01-tw', '2026-10-01-sm', '2026-10-01-ih', '2026-10-01-hv', '2026-10-01-sa', '2026-10-01-sf', '2026-10-01-ti', '2026-10-01-ta', '2026-09-30-mi', '2026-09-30-mh', '2026-09-30-pl', '2026-09-30-dh', '2026-09-30-uw2', '2026-09-30-uw', '2026-09-20-h')
 
 // ── tiny Web Audio kit (game has no audio system yet; kept self-contained) ──
 let bootAC=null;
